@@ -1,0 +1,14 @@
+name: AI declaration
+
+on:
+  pull_request_target:
+    branches: [$default-branch]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  declaration:
+    uses: industrial-mathematics-group/.github/.github/workflows/ai-declaration.yml@main

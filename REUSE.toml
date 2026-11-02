@@ -4,4 +4,11 @@ version = 1
 [[annotations]]
 path = ["**"]
 SPDX-FileCopyrightText = "2026 Industrial Mathematics Group"
+SPDX-License-Identifier = "MIT"
+
+
+# The logos (must come after the catch-all)
+[[annotations]]
+path = ["logos/**", "docs/src/assets/logo*.svg", "docs/src/assets/favicon*"]
+SPDX-FileCopyrightText = "2026 Industrial Mathematics Group"
 SPDX-License-Identifier = "CC-BY-4.0"

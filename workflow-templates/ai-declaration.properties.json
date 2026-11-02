@@ -1,0 +1,5 @@
+{
+  "name": "AI declaration check",
+  "description": "Checks the G0–G3 / V0–V3 AI declaration of pull requests into the default branch and labels them.",
+  "iconName": "octicon shield-check"
+}

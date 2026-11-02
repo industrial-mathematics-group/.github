@@ -1,0 +1,107 @@
+# Reusable workflow: validates the AI declaration of a pull request and sets labels.
+# Called from each repository (see workflow-templates/ai-declaration.yml).
+#
+# Rules (see CONTRIBUTING.md, "AI-assisted contributions"):
+#   AI-Generation: G0-G3       always
+#   AI-Verification: V0-V3     always
+#   Assisted-by: ...           required for G1-G3, not allowed for G0
+#   Verified-by: ...           required for V1-V3
+#   Tested-by: ...             required for V0 and V3
+#   The block must be the last paragraph of the PR description (it becomes git trailers on squash merge).
+#
+# Security: runs on pull_request_target so it can label PRs from forks. It never checks out
+# or executes code from the PR; it only reads the PR description.
+name: AI declaration
+
+on:
+  workflow_call:
+
+jobs:
+  check:
+    # Bot PRs (CompatHelper, Dependabot, ...) are exempt. A skipped required check counts as passed.
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Validate declaration and set labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = (context.payload.pull_request.body || '').replace(/\r\n?/g, '\n');
+
+            // ---------- parse ----------
+            const KEYS = ['AI-Generation', 'AI-Verification', 'Assisted-by', 'Verified-by', 'Tested-by'];
+            const paragraphs = body.trim().split(/\n[ \t]*\n/);
+            const last = (paragraphs[paragraphs.length - 1] || '').trim();
+            const lines = last.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const values = {};
+            const errors = [];
+            for (const line of lines) {
+              const m = line.match(/^([A-Za-z-]+):(.*)$/);
+              if (!m || !KEYS.some(k => k.toLowerCase() === m[1].toLowerCase())) {
+                errors.push(`The last paragraph of the description must contain only the declaration lines, but found: "${line}". Keep the declaration block at the very end.`);
+                continue;
+              }
+              const key = KEYS.find(k => k.toLowerCase() === m[1].toLowerCase());
+              const value = m[2].trim();
+              if (value === '') {
+                errors.push(`"${key}:" is empty. Fill it in or delete the line.`);
+                continue;
+              }
+              (values[key] ||= []).push(value);
+            }
+
+            // ---------- validate ----------
+            const one = (key, re, hint) => {
+              const v = values[key] || [];
+              if (v.length !== 1 || !re.test(v[0])) { errors.push(`Expected exactly one "${key}: ${hint}" line.`); return null; }
+              return v[0];
+            };
+            const g = one('AI-Generation', /^G[0-3]$/, 'G0, G1, G2 or G3');
+            const v = one('AI-Verification', /^V[0-3]$/, 'V0, V1, V2 or V3');
+            const has = key => (values[key] || []).length > 0;
+
+            if (g && g !== 'G0' && !has('Assisted-by')) errors.push(`${g} needs at least one "Assisted-by:" line naming the tool and model.`);
+            if (g === 'G0' && has('Assisted-by')) errors.push('G0 means no AI was used, so "Assisted-by:" must be removed (or choose G1-G3).');
+            if (v && ['V1', 'V2', 'V3'].includes(v) && !has('Verified-by')) errors.push(`${v} needs a "Verified-by:" line naming the verifying model and session.`);
+            if (v && ['V0', 'V3'].includes(v) && !has('Tested-by')) errors.push(`${v} needs a "Tested-by:" line naming the human who tested.`);
+
+            const summary = core.summary.addHeading('AI declaration', 3);
+            if (errors.length) {
+              summary.addList(errors).addRaw('See CONTRIBUTING.md, section "AI-assisted contributions".').write();
+              core.setFailed(errors.join('\n'));
+              return;
+            }
+            await summary.addTable([
+              [{ data: 'Generation', header: true }, { data: 'Verification', header: true }],
+              [g, v],
+            ]).write();
+
+            // ---------- labels ----------
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const colors = { G0: '389826', G1: '4063D8', G2: '9558B2', G3: 'CB3C33', V0: '1B2238', V1: '5A6378', V2: '5A6378', V3: '389826' };
+            const descriptions = {
+              G0: 'Human-written', G1: 'AI-assisted', G2: 'AI-generated', G3: 'AI-autonomous',
+              V0: 'Verified by a human', V1: 'Verified by an independent agent (same model)',
+              V2: 'Verified by an independent agent (different model)', V3: 'Verified by a human and an independent agent',
+            };
+            const wanted = [`ai:${g}`, `verified:${v}`];
+            for (const name of wanted) {
+              const level = name.split(':')[1];
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (e) {
+                if (e.status !== 404) throw e;
+                await github.rest.issues.createLabel({ owner, repo, name, color: colors[level], description: descriptions[level] });
+              }
+            }
+            const current = (await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number, per_page: 100 })).data.map(l => l.name);
+            for (const name of current) {
+              if (/^(ai:G|verified:V)[0-3]$/.test(name) && !wanted.includes(name)) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              }
+            }
+            await github.rest.issues.addLabels({ owner, repo, issue_number, labels: wanted });

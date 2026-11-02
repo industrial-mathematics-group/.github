@@ -1,0 +1,5 @@
+{
+  "name": "AI declaration badges",
+  "description": "Summarises the AI declarations on the default branch and publishes README badges to the badges branch.",
+  "iconName": "octicon graph"
+}

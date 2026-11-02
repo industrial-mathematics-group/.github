@@ -1,0 +1,13 @@
+name: AI badge
+
+on:
+  push:
+    branches: [$default-branch]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  badge:
+    uses: industrial-mathematics-group/.github/.github/workflows/ai-badge.yml@main

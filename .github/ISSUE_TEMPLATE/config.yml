@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security issue
+    url: https://github.com/industrial-mathematics-group/.github/blob/main/.github/SECURITY.md
+    about: Please report security problems privately, not as a public issue.
+  - name: Julia Discourse
+    url: https://discourse.julialang.org/
+    about: General questions about Julia and its ecosystem.
