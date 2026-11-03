@@ -4,7 +4,7 @@
 <img alt="Industrial Mathematics Group" src="../logos/svg/logo-dark.svg#gh-dark-mode-only" width="640">
 
 <!-- Badges: replace <ZENODO-COMMUNITY> with your community id -->
-[![Zenodo community](https://img.shields.io/badge/Zenodo-community-1682D4.svg)](https://zenodo.org/communities/<ZENODO-COMMUNITY>)
+[![Zenodo community](https://img.shields.io/badge/Zenodo-community-1682D4.svg)](https://zenodo.org/communities/img)
 [![Website](https://img.shields.io/badge/web-math.rptu.de-1B2238.svg)](https://math.rptu.de/ags/techno)
 
 </div>
