@@ -6,4 +6,4 @@ In short: be respectful and constructive, assume good intent, welcome newcomers,
 
 ## Reporting
 
-If you experience or witness unacceptable behaviour, contact the maintainers at **[CONTACT EMAIL]**. Reports are handled confidentially. The maintainers may take any action they consider appropriate, as described in the enforcement guidelines of the Contributor Covenant.
+If you experience or witness unacceptable behaviour, contact the maintainers at **dev@blackslash.win**. Reports are handled confidentially. The maintainers may take any action they consider appropriate, as described in the enforcement guidelines of the Contributor Covenant.
