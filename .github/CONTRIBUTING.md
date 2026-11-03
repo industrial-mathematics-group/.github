@@ -91,6 +91,20 @@ These lines must stay at the **very end** of the PR description. On squash merge
 
 An automated check validates the block on every PR into `main` and adds the labels `ai:G*` and `verified:V*`. Each repository can show a badge summarising its declared history.
 
+### Declaring files: AIDECL.toml
+
+The trailers describe each *change*. Repositories that also contain results, data, notebooks or papers, or that are published in a single commit, declare the *files* instead, with [aidecl](https://github.com/industrial-mathematics-group/aidecl) and a path-based `AIDECL.toml` (it works like `REUSE.toml`):
+
+```bash
+pipx install "git+https://github.com/industrial-mathematics-group/aidecl"
+aidecl init -g G0 -v V0 --tested-by "Jane Doe"                     # default for everything
+aidecl annotate results/ -g G2 -v V0 \
+    --assisted-by "Claude Opus 5.5 (Anthropic)" --tested-by "Jane Doe"   # the exceptions
+aidecl lint                                                         # every file declared?
+```
+
+The same levels and rules apply. Text files can carry the declaration in a header comment instead (`aidecl annotate FILE --inline`). If a repository has an `AIDECL.toml`, **update it in the same PR** whenever your change alters how a file was created or verified; the *AI file declarations* check fails if any file is left without a valid declaration.
+
 ### Responsibility
 
 - **You are responsible for what you submit**, whoever or whatever wrote it. AI cannot take responsibility for a contribution; the human who opens the PR does.

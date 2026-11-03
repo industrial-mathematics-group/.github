@@ -5,7 +5,7 @@ Our projects are research software. If you find a security issue, for example co
 ## How to report
 
 - **Preferred:** use GitHub's private vulnerability reporting on the affected repository (*Security* tab → *Report a vulnerability*).
-- **Alternatively:** email **dev@blackslash.win**.
+- **Alternatively:** email **[CONTACT EMAIL]**.
 
 Please include the affected package and version, a description of the problem and, if possible, a minimal example. Don't open a public issue for security problems.
 

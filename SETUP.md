@@ -9,6 +9,7 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/` | Default PR and issue templates |
 | `.github/workflows/ai-declaration.yml` | Reusable workflow: checks the AI declaration, sets labels |
 | `.github/workflows/ai-badge.yml` | Reusable workflow: publishes the README badges |
+| `.github/workflows/aidecl.yml` | Reusable workflow: file-level declarations with aidecl (lint + badges) |
 | `workflow-templates/` | One-click versions of the two caller workflows (*Actions → New workflow*) |
 | `logos/` | Logo kits (CC BY 4.0) |
 
@@ -40,6 +41,22 @@ This repository must be **public** for the defaults and the reusable workflows t
 ```
 
 The two dynamic badges show "no declarations yet" until the first declared PR is merged. Run the *AI badge* workflow once by hand (*Actions → AI badge → Run workflow*) to create the `badges` branch.
+
+## Optional: file-level declarations (aidecl)
+
+For repositories with results, data or papers, or with casual single-commit uploads:
+
+1. **Once for the organisation:** create the public repository `industrial-mathematics-group/aidecl` from the aidecl source and push it. The workflow installs the tool from there; tag a release (e.g. `v0.1.0`) if you want repositories to pin it.
+2. **Per repository:** add `AIDECL.toml` (`aidecl init …`, `aidecl annotate …`) and the **AI file declarations** workflow (*Actions → New workflow*). It runs `aidecl lint` on every push and PR, and on pushes to `main` it publishes the badges:
+
+```markdown
+[![AI generation (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aidecl-generation.json)](https://github.com/industrial-mathematics-group/aidecl)
+[![Verification (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aidecl-verification.json)](https://github.com/industrial-mathematics-group/aidecl)
+```
+
+3. Optionally require the status check **`aidecl / lint`** on `main`.
+
+Both systems can run side by side: the PR check and trailer badges describe changes, aidecl describes files. They use different badge files on the same `badges` branch.
 
 ## How it fits together
 

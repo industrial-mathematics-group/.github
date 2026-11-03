@@ -1,0 +1,5 @@
+{
+  "name": "AI file declarations",
+  "description": "Checks with aidecl that every file declares its AI generation (G0–G3) and verification (V0–V3) level, and publishes README badges.",
+  "iconName": "octicon file-badge"
+}

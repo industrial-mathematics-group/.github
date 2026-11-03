@@ -14,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    concurrency:
+      group: ai-badge-${{ github.repository }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,7 +25,7 @@ jobs:
       - name: Count declarations
         run: |
           python3 - <<'PY'
-          import json, os, re, subprocess
+          import json, math, os, re, subprocess
           from collections import Counter
 
           log = subprocess.run(
@@ -39,23 +42,29 @@ jobs:
                   ver[v.group(1).upper() if v else "undeclared"] += 1
           declared = sum(gen.values())
 
-          def badge(label, counts, keys, color):
-              if declared == 0:
-                  return {"schemaVersion": 1, "label": label, "message": "no declarations yet", "color": "lightgrey"}
-              parts, used = [], 0
-              shown = [k for k in keys if counts[k]]
-              for i, k in enumerate(shown):
-                  # largest-remainder style: last entry takes the rest so the sum is 100 %
-                  pct = 100 - used if i == len(shown) - 1 else round(100 * counts[k] / declared)
-                  used += pct
-                  parts.append(f"{k} {pct}%")
-              return {"schemaVersion": 1, "label": label, "message": " · ".join(parts), "color": color}
+          def percentages(counts):
+              # largest-remainder method: integers that sum to exactly 100
+              total = sum(counts.values())
+              exact = {k: 100 * c / total for k, c in counts.items()}
+              out = {k: math.floor(x) for k, x in exact.items()}
+              for k in sorted(exact, key=lambda k: exact[k] - out[k], reverse=True)[: 100 - sum(out.values())]:
+                  out[k] += 1
+              return out
 
-          os.makedirs("out", exist_ok=True)
-          with open("out/ai-generation.json", "w") as f:
-              json.dump(badge("AI generation", gen, ["G0", "G1", "G2", "G3"], "4063D8"), f)
-          with open("out/ai-verification.json", "w") as f:
-              json.dump(badge("verification", ver, ["V0", "V1", "V2", "V3", "undeclared"], "389826"), f)
+          def badge(label, counts, keys, color):
+              shown = {k: counts[k] for k in keys if counts[k]}
+              if not shown:
+                  return {"schemaVersion": 1, "label": label, "message": "no declarations yet", "color": "lightgrey"}
+              pct = percentages(shown)
+              message = " · ".join(f"{k} {pct[k]}%" if pct[k] else f"{k} <1%" for k in shown)
+              return {"schemaVersion": 1, "label": label, "message": message, "color": color}
+
+          os.makedirs(os.environ["RUNNER_TEMP"] + "/ai-badges", exist_ok=True)
+          out = os.environ["RUNNER_TEMP"] + "/ai-badges/"
+          with open(out + "ai-generation.json", "w") as f:
+              json.dump(badge("AI generation", gen, ["G0", "G1", "G2", "G3"], "4063D8"), f, ensure_ascii=False)
+          with open(out + "ai-verification.json", "w") as f:
+              json.dump(badge("verification", ver, ["V0", "V1", "V2", "V3", "undeclared"], "389826"), f, ensure_ascii=False)
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
               s.write(f"### AI declarations\n\n{declared} of {len(messages)} commits on the default branch are declared.\n\n")
@@ -65,21 +74,33 @@ jobs:
           PY
 
       - name: Publish to the badges branch
+        env:
+          FILES: ai-generation.json ai-verification.json
+          SRC: ${{ runner.temp }}/ai-badges
+          MESSAGE: Update AI declaration badges
         run: |
+          # Other workflows (e.g. "AI file declarations") write other files to the same branch,
+          # so a push can be rejected: start again from the newest branch tip and retry.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git ls-remote --exit-code --heads origin badges >/dev/null; then
-            git fetch origin badges
-            git worktree add /tmp/badges -B badges origin/badges
-          else
-            git worktree add --orphan -b badges /tmp/badges
-          fi
-          cp out/*.json /tmp/badges/
-          cd /tmp/badges
-          git add ai-generation.json ai-verification.json
-          if git diff --cached --quiet; then
-            echo "Badges unchanged."
-          else
-            git commit -m "Update AI declaration badges"
-            git push origin badges
-          fi
+          set -euo pipefail
+          WT="$RUNNER_TEMP/badges-worktree"
+          for attempt in 1 2 3 4 5; do
+            cd "$GITHUB_WORKSPACE"
+            rm -rf "$WT"; git worktree prune
+            if git ls-remote --exit-code --heads origin badges >/dev/null; then
+              git fetch -q origin badges
+              git worktree add -q --detach "$WT" FETCH_HEAD
+            else
+              # unique local name; only the remote branch is called "badges"
+              git worktree add -q --orphan -b "badges-new-$GITHUB_RUN_ID-$attempt" "$WT"
+            fi
+            for f in $FILES; do cp "$SRC/$f" "$WT/"; done
+            cd "$WT"
+            git add $FILES
+            if git diff --cached --quiet; then echo "Badges unchanged."; exit 0; fi
+            git commit -q -m "$MESSAGE"
+            if git push -q origin HEAD:refs/heads/badges; then echo "Badges published."; exit 0; fi
+            echo "Push rejected (attempt $attempt), retrying ..."; sleep $((attempt * 3))
+          done
+          echo "Could not publish the badges." >&2; exit 1
