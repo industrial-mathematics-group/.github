@@ -24,14 +24,14 @@ We are the **Industrial Mathematics Group** at RPTU Kaiserslautern-Landau. We de
 |---|---|---|
 | [HyperCloudCore.jl](https://github.com/industrial-mathematics-group/HyperCloudCore.jl) | Meshfree engine for hyperbolic systems: particle grids, MLS schemes (upwind, MUSCL, WENO), MOOD, IMEX time stepping | [stable](https://industrial-mathematics-group.github.io/HyperCloudCore.jl/stable/) |
 | [HyperCloud.jl](https://github.com/industrial-mathematics-group/HyperCloud.jl) | Ready-to-use solvers on top of HyperCloudCore: advection, Burgers, Euler, BGK and kinetic relaxation | [stable](https://industrial-mathematics-group.github.io/HyperCloud.jl/stable/) |
-| [PDEStudioCore.jl](https://github.com/industrial-mathematics-group/PDEStudioCore.jl) | Headless engine for parameter sweeps, hash-based result caching and error statistics | |
-| [PDEStudio.jl](https://github.com/industrial-mathematics-group/PDEStudio.jl) | Interactive Makie front end for exploring and exporting PDE simulations | |
+| [PDEStudioCore.jl](https://github.com/industrial-mathematics-group/PDEStudioCore.jl) | Headless engine for parameter sweeps, hash-based result caching and error statistics | [stable](https://industrial-mathematics-group.github.io/PDEStudioCore.jl/stable/) |
+| [PDEStudio.jl](https://github.com/industrial-mathematics-group/PDEStudio.jl) | Interactive Makie front end for exploring and exporting PDE simulations | [stable](https://industrial-mathematics-group.github.io/PDEStudio.jl/stable/) |
 
 <!-- Add further packages here. -->
 
 ## Open science
 
-Our code is open source, and releases are archived with DOIs in our [Zenodo community](https://zenodo.org/communities/<ZENODO-COMMUNITY>). If you use our software in your research, please cite the corresponding Zenodo record; each repository lists its citation.
+Our code is open source, and releases are archived with DOIs in our [Zenodo community](https://zenodo.org/communities/img). If you use our software in your research, please cite the corresponding Zenodo record; each repository lists its citation.
 
 Questions, bug reports and contributions are welcome. Please open an issue in the relevant repository; see [CONTRIBUTING](../.github/CONTRIBUTING.md) for details.
 
