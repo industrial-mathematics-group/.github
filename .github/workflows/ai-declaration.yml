@@ -2,15 +2,17 @@
 # Called from each repository (see workflow-templates/ai-declaration.yml).
 #
 # Rules (see CONTRIBUTING.md, "AI-assisted contributions"):
-#   AI-Generation: G0-G3       always
-#   AI-Verification: V0-V3     always
-#   Assisted-by: ...           required for G1-G3, not allowed for G0
-#   Verified-by: ...           required for V1-V3
-#   Tested-by: ...             required for V0 and V3
+#   AI-Generation: G0-G3         always
+#   Human-Review: H0-H3          always; must match the ticked H questions of the template
+#   AI-Review: A-, A0-A3         always; must match the ticked A questions of the template
+#   Assisted-by: ...             required for G1-G3, not allowed for G0
+#   AI-Reviewed-by: ...          required for A0-A3, not allowed for A-
+#   Reviewed-by: ...             always (the responsible human)
+#   G1-G3 need at least A0; a [policy] table in the repository's AIDECL.toml can require more.
 #   The block must be the last paragraph of the PR description (it becomes git trailers on squash merge).
 #
-# Security: runs on pull_request_target so it can label PRs from forks. It never checks out
-# or executes code from the PR; it only reads the PR description.
+# Security: runs on pull_request_target so it can label PRs from forks. It only reads the PR
+# description and the AIDECL.toml of the BASE branch; it never checks out or runs code from the PR.
 name: AI declaration
 
 on:
@@ -22,85 +24,215 @@ jobs:
     if: github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
       issues: write
     steps:
+      - name: Read the policy from the base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: AIDECL.toml
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Parse [policy]
+        id: policy
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, tomllib
+          policy = {}
+          if os.path.exists("AIDECL.toml"):
+              try:
+                  data = tomllib.load(open("AIDECL.toml", "rb"))
+              except tomllib.TOMLDecodeError as e:
+                  sys.exit(f"AIDECL.toml on the base branch is not valid TOML: {e}")
+              policy = data.get("policy", {}) or {}
+              if not isinstance(policy, dict):
+                  sys.exit("AIDECL.toml: [policy] must be a table")
+              for gen, req in policy.items():
+                  if gen != "*" and gen not in ("G0", "G1", "G2", "G3"):
+                      sys.exit(f"AIDECL.toml [policy]: unknown key '{gen}' (use \"*\", G0-G3)")
+                  if not isinstance(req, dict) or set(req) - {"human", "ai"}:
+                      sys.exit(f"AIDECL.toml [policy].{gen} must be a table with 'human' and/or 'ai'")
+                  if req.get("human", "H0") not in ("H0", "H1", "H2", "H3"):
+                      sys.exit(f"AIDECL.toml [policy].{gen}.human must be H0-H3")
+                  if req.get("ai", "A-") not in ("A-", "A0", "A1", "A2", "A3"):
+                      sys.exit(f"AIDECL.toml [policy].{gen}.ai must be A- or A0-A3")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"json={json.dumps(policy)}\n")
+          print("Policy:", json.dumps(policy) if policy else "none (defaults)")
+          PY
+
       - name: Validate declaration and set labels
         uses: actions/github-script@v7
+        env:
+          POLICY: ${{ steps.policy.outputs.json }}
         with:
           script: |
             const body = (context.payload.pull_request.body || '').replace(/\r\n?/g, '\n');
-
-            // ---------- parse ----------
-            const KEYS = ['AI-Generation', 'AI-Verification', 'Assisted-by', 'Verified-by', 'Tested-by'];
-            const paragraphs = body.trim().split(/\n[ \t]*\n/);
-            const last = (paragraphs[paragraphs.length - 1] || '').trim();
-            const lines = last.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            const values = {};
+            const policy = JSON.parse(process.env.POLICY || '{}');
             const errors = [];
-            for (const line of lines) {
+
+            // ---------- levels and ordering ----------
+            const LEVELS = {
+              'AI-Generation': ['G0', 'G1', 'G2', 'G3'],
+              'Human-Review': ['H0', 'H1', 'H2', 'H3'],
+              'AI-Review': ['A-', 'A0', 'A1', 'A2', 'A3'],
+            };
+            const rank = (level) => {
+              for (const list of Object.values(LEVELS)) { const i = list.indexOf(level); if (i >= 0) return i; }
+              return -1;
+            };
+
+            // ---------- declaration block (last paragraph) ----------
+            const KEYS = ['AI-Generation', 'Human-Review', 'AI-Review', 'Assisted-by', 'AI-Reviewed-by', 'Reviewed-by'];
+            const LEGACY = ['AI-Verification', 'Verified-by', 'Tested-by'];
+            const STANDARD = ['signed-off-by', 'co-authored-by'];   // allowed in the block, ignored here
+            const paragraphs = body.replace(/\s+$/, '').split(/\n[ \t]*\n/);
+            const last = paragraphs[paragraphs.length - 1] || '';
+            const values = {};
+            for (const raw of last.split('\n').filter(l => l.trim())) {
+              if (/^[ \t]/.test(raw)) {
+                errors.push(`Declaration lines must start at the beginning of the line (git would join "${raw.trim()}" to the previous line).`);
+                continue;
+              }
+              const line = raw.trim();
               const m = line.match(/^([A-Za-z-]+):(.*)$/);
-              if (!m || !KEYS.some(k => k.toLowerCase() === m[1].toLowerCase())) {
+              if (m && STANDARD.includes(m[1].toLowerCase())) continue;
+              const name = m ? m[1].toLowerCase() : null;
+              if (m && LEGACY.some(k => k.toLowerCase() === name)) {
+                errors.push(`"${m[1]}:" belongs to the old V0-V3 levels. Use Human-Review / AI-Review / Reviewed-by / AI-Reviewed-by instead.`);
+                continue;
+              }
+              const key = m && KEYS.find(k => k.toLowerCase() === name);
+              if (!key) {
                 errors.push(`The last paragraph of the description must contain only the declaration lines, but found: "${line}". Keep the declaration block at the very end.`);
                 continue;
               }
-              const key = KEYS.find(k => k.toLowerCase() === m[1].toLowerCase());
               const value = m[2].trim();
-              if (value === '') {
-                errors.push(`"${key}:" is empty. Fill it in or delete the line.`);
-                continue;
-              }
+              if (value === '') { errors.push(`"${key}:" is empty. Fill it in or delete the line.`); continue; }
               (values[key] ||= []).push(value);
             }
-
-            // ---------- validate ----------
-            const one = (key, re, hint) => {
+            const one = (key) => {
               const v = values[key] || [];
-              if (v.length !== 1 || !re.test(v[0])) { errors.push(`Expected exactly one "${key}: ${hint}" line.`); return null; }
+              if (v.length !== 1 || !LEVELS[key].includes(v[0])) {
+                errors.push(`Expected exactly one "${key}: ${LEVELS[key].join(', ')}" line.`);
+                return null;
+              }
               return v[0];
             };
-            const g = one('AI-Generation', /^G[0-3]$/, 'G0, G1, G2 or G3');
-            const v = one('AI-Verification', /^V[0-3]$/, 'V0, V1, V2 or V3');
-            const has = key => (values[key] || []).length > 0;
+            const g = one('AI-Generation'), h = one('Human-Review'), a = one('AI-Review');
+            const has = (key) => (values[key] || []).length > 0;
 
+            // ---------- the ticked questions ----------
+            // Only what is visible in the rendered PR counts: HTML comments and fenced code
+            // blocks are removed, and only top-level (not indented) checkboxes are read.
+            const visible = [];
+            let fence = null, inComment = false;
+            for (const line of body.split('\n')) {
+              if (fence) {
+                const f = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+                if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+                continue;
+              }
+              if (inComment) {
+                if (line.includes('-->')) inComment = false;
+                continue;
+              }
+              const f = line.match(/^ {0,3}(`{3,}|~{3,})/);
+              if (f) { fence = f[1]; continue; }
+              // comments outside inline code; an unclosed one hides everything up to its end
+              let rest = line.replace(/`[^`]*`/g, '').replace(/<!--[\s\S]*?-->/g, '');
+              const open = rest.indexOf('<!--');
+              if (open >= 0) { inComment = true; rest = rest.slice(0, open); }
+              visible.push(rest);
+            }
+            const ticks = {};
+            for (const line of visible) {
+              const m = line.match(/^[-*] \[( |x|X)\] \*\*([HA][0-3])\*\*/);
+              if (!m) continue;
+              if (m[2] in ticks) errors.push(`The question ${m[2]} appears more than once; keep the template's questions as they are.`);
+              ticks[m[2]] = m[1] !== ' ';
+            }
+            const derive = (prefix, none) => {
+              const keys = [0, 1, 2, 3].map(i => `${prefix}${i}`);
+              const missing = keys.filter(k => !(k in ticks));
+              if (missing.length) {
+                errors.push(`The review questions ${missing.join(', ')} from the PR template are missing. Copy the "Review" section back from the template and tick what applies.`);
+                return undefined;
+              }
+              let level = none;
+              for (const k of keys) { if (ticks[k]) level = k; else break; }
+              const gap = keys.find((k, i) => ticks[k] && keys.slice(0, i).some(j => !ticks[j]));
+              if (gap) errors.push(`You ticked ${gap} but not every level below it; the levels build on each other.`);
+              return level;
+            };
+            const hTicked = derive('H', null);
+            const aTicked = derive('A', 'A-');
+            if (hTicked === null) errors.push('Tick at least H0: a human review is required for every change.');
+            if (h && hTicked && h !== hTicked) errors.push(`Your ticked questions correspond to ${hTicked}, but the block says Human-Review: ${h}.`);
+            if (a && aTicked !== undefined && a !== aTicked) errors.push(`Your ticked questions correspond to ${aTicked}, but the block says AI-Review: ${a}.`);
+            const resp = visible.map(l => l.match(/^[-*] \[( |x|X)\] I take responsibility/)).find(Boolean);
+            if (!resp || resp[1] === ' ') errors.push('Please tick "I take responsibility for this change" (from the PR template).');
+
+            // ---------- completeness rules ----------
             if (g && g !== 'G0' && !has('Assisted-by')) errors.push(`${g} needs at least one "Assisted-by:" line naming the tool and model.`);
             if (g === 'G0' && has('Assisted-by')) errors.push('G0 means no AI was used, so "Assisted-by:" must be removed (or choose G1-G3).');
-            if (v && ['V1', 'V2', 'V3'].includes(v) && !has('Verified-by')) errors.push(`${v} needs a "Verified-by:" line naming the verifying model and session.`);
-            if (v && ['V0', 'V3'].includes(v) && !has('Tested-by')) errors.push(`${v} needs a "Tested-by:" line naming the human who tested.`);
+            if (!has('Reviewed-by')) errors.push('A "Reviewed-by:" line naming the responsible human is required.');
+            if (a && a !== 'A-' && !has('AI-Reviewed-by')) errors.push(`${a} needs an "AI-Reviewed-by:" line naming the reviewing model and session.`);
+            if (a === 'A-' && has('AI-Reviewed-by')) errors.push('A- means no AI review, so "AI-Reviewed-by:" must be removed.');
+
+            // ---------- minimum levels ----------
+            if (g && h && a) {
+              const req = { ...(policy['*'] || {}), ...(policy[g] || {}) };
+              let minA = req.ai;
+              if (g !== 'G0' && (!minA || rank(minA) < rank('A0'))) minA = 'A0';
+              if (req.human && rank(h) < rank(req.human)) errors.push(`${g} requires at least ${req.human} in this repository (declared ${h}).`);
+              if (minA && rank(a) < rank(minA)) errors.push(g !== 'G0' && minA === 'A0'
+                ? `AI-written content (${g}) must at least be self-checked: AI-Review A0 or higher (declared ${a}).`
+                : `${g} requires at least ${minA} in this repository (declared ${a}).`);
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const isAiLabel = (name) => /^(ai:G[0-3]|human:H[0-3]|ai-review:A[-0-3]|verified:V[0-3])$/.test(name);
+            const currentLabels = async () =>
+              (await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number, per_page: 100 })).data.map(l => l.name);
 
             const summary = core.summary.addHeading('AI declaration', 3);
             if (errors.length) {
+              // labels from an earlier, valid version of the description no longer apply
+              for (const name of (await currentLabels()).filter(isAiLabel)) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              }
               summary.addList(errors).addRaw('See CONTRIBUTING.md, section "AI-assisted contributions".').write();
               core.setFailed(errors.join('\n'));
               return;
             }
             await summary.addTable([
-              [{ data: 'Generation', header: true }, { data: 'Verification', header: true }],
-              [g, v],
+              [{ data: 'Generation', header: true }, { data: 'Human review', header: true }, { data: 'AI review', header: true }],
+              [g, h, a],
             ]).write();
 
             // ---------- labels ----------
-            const { owner, repo } = context.repo;
-            const issue_number = context.payload.pull_request.number;
-            const colors = { G0: '389826', G1: '4063D8', G2: '9558B2', G3: 'CB3C33', V0: '1B2238', V1: '5A6378', V2: '5A6378', V3: '389826' };
-            const descriptions = {
-              G0: 'Human-written', G1: 'AI-assisted', G2: 'AI-generated', G3: 'AI-autonomous',
-              V0: 'Verified by a human', V1: 'Verified by an independent agent (same model)',
-              V2: 'Verified by an independent agent (different model)', V3: 'Verified by a human and an independent agent',
+            const info = {
+              G0: ['389826', 'Human-written'], G1: ['4063D8', 'AI-assisted'], G2: ['9558B2', 'AI-generated'], G3: ['CB3C33', 'AI-autonomous'],
+              H0: ['C9D1E4', 'Human: plausibility check'], H1: ['9AA3B8', 'Human: tested'], H2: ['5A6378', 'Human: reviewed line by line'], H3: ['1B2238', 'Human: independently validated'],
+              'A-': ['EDEDED', 'No AI review'], A0: ['F3E0C2', 'AI: self-check'], A1: ['E8B86D', 'AI: independent session'], A2: ['D08A1E', 'AI: independent model'], A3: ['8A5A0B', 'AI: independent model with benchmark'],
             };
-            const wanted = [`ai:${g}`, `verified:${v}`];
+            const wanted = [`ai:${g}`, `human:${h}`, `ai-review:${a}`];
             for (const name of wanted) {
               const level = name.split(':')[1];
               try {
                 await github.rest.issues.getLabel({ owner, repo, name });
               } catch (e) {
                 if (e.status !== 404) throw e;
-                await github.rest.issues.createLabel({ owner, repo, name, color: colors[level], description: descriptions[level] });
+                await github.rest.issues.createLabel({ owner, repo, name, color: info[level][0], description: info[level][1] });
               }
             }
-            const current = (await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number, per_page: 100 })).data.map(l => l.name);
-            for (const name of current) {
-              if (/^(ai:G|verified:V)[0-3]$/.test(name) && !wanted.includes(name)) {
+            for (const name of await currentLabels()) {
+              if (isAiLabel(name) && !wanted.includes(name)) {
                 await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
               }
             }

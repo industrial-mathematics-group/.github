@@ -34,11 +34,17 @@ julia --project -e 'using Pkg; Pkg.test()'
 
 ## AI-assisted contributions
 
-We **welcome the use of AI tools**: assistants, code generation and autonomous agents. The only requirement is that every contribution to `main` **declares honestly how it was created and how it was verified**.
+We **welcome the use of AI tools**: assistants, code generation and autonomous agents. The requirement is that every contribution to `main` **declares honestly how it was created and how it was reviewed**, on three axes:
+
+- **G**: how much of it an AI generated;
+- **H**: how thoroughly a human reviewed it (always required: a human is responsible for every contribution);
+- **A**: how independently an AI reviewed it.
+
+A declaration reads like **G2 · H2 · A1**: AI-generated, reviewed line by line by a human, and checked by an independent AI session.
 
 The declaration is only required for pull requests into `main`. Work on your own branches as you like; the template and the automated check only apply when you open a PR.
 
-### Generation levels: how was it written?
+### G: generation
 
 | Level | Name | Meaning |
 |---|---|---|
@@ -49,65 +55,111 @@ The declaration is only required for pull requests into `main`. Work on your own
 
 Choose the **highest** level that applies to any substantial part of the PR.
 
-### Verification levels: how was it checked?
+### H: human review
+
+The levels describe what the human **did**, and each includes the ones below it.
+
+| Level | Name | What the human did |
+|---|---|---|
+| **H0** | Plausibility check | Looked at the result as a whole: it does what was asked, runs, and the output is plausible. |
+| **H1** | Tested | Ran the tests or reproduced the key results themselves, and read the important parts (interfaces, core numerics). |
+| **H2** | Reviewed | Read **every changed line**, understands it, and checked edge cases. |
+| **H3** | Validated | H2, plus an **independent check**: wrote new tests, compared against a reference solution or method (analytical solution, convergence order, literature), or a second person reviewed it. |
+
+For results and data:
+- **H1:** the results were regenerated or reproduced.
+- **H2:** every figure and number was checked against its source.
+- **H3:** the results were reproduced independently, by another person or with another method.
+
+### A: AI review
 
 | Level | Name | Meaning |
 |---|---|---|
-| **V0** | Human | A human ran the tests and reviewed the change line by line. |
-| **V1** | Independent agent, same model | A **fresh** agent session of the same model verified the change (see below). |
-| **V2** | Independent agent, different model | An agent based on a **different, comparably capable** model verified the change. |
-| **V3** | Human + independent agent | Both V0 and at least one of V1 or V2. |
+| **A-** | None | No AI reviewed the change. |
+| **A0** | Self-check | The generating AI session ran the tests and checked its own output. |
+| **A1** | Independent session | A **fresh** session of the same model reviewed the change and ran the tests. |
+| **A2** | Independent model | A fresh session of a **different model of similar or higher capability** did so. |
+| **A3** | Benchmarked | A2, plus a **full benchmark**: the reviewing model wrote new tests and compared against reference methods or solutions. It is the AI counterpart of H3. |
 
-The levels describe *who* verified the change, not a ranking; V3 is the most thorough. Unverified changes are not merged.
+**AI-written content must at least be self-checked:** G1–G3 require at least A0.
 
-**What counts as an independent agent (V1, V2):**
-- It starts in a **new session without the generating conversation or its notes**. It sees only the issue, the diff and the repository.
+**What counts as an independent session (A1–A3):**
+- It starts **without the generating conversation or its notes**. It sees only the issue, the diff and the repository.
 - It **runs the test suite itself** and reviews the diff for correctness, edge cases and numerical soundness.
 - Its findings are addressed before the PR is marked ready. Mention notable findings in the PR.
 
-Maintainer review is separate from this declaration: every PR is still reviewed and merged by a maintainer.
+### Minimum levels per repository
+
+A repository can require more through a `[policy]` table in its `AIDECL.toml`. The PR check and `aidecl lint` both enforce it:
+
+```toml
+[policy]
+"*" = { human = "H1" }               # default for every generation level
+G3  = { human = "H2", ai = "A1" }    # stricter for autonomous agents
+```
+
+Without a policy, the minimum is H0 for everything, plus A0 for G1–G3.
 
 ### How to declare
 
-The PR template ends with a block of trailer lines. Fill them in and **delete lines that don't apply**:
+The PR template asks a few **yes/no questions** about the human and the AI review. Tick what applies; the check derives your H and A levels from the ticks. Keep the questions as they are in the template: the check needs all of them, reads only top-level boxes outside comments and code blocks, and fails if one is missing or appears twice.
+
+The template then ends with a block of trailer lines. Fill them in and **delete lines that don't apply**:
 
 ```
 AI-Generation: G2
-AI-Verification: V3
+Human-Review: H2
+AI-Review: A1
 Assisted-by: Claude Opus 5.5 (Anthropic)
-Verified-by: GPT-5 (OpenAI), independent session
-Tested-by: Jane Doe <jane@example.org>
+AI-Reviewed-by: Claude Opus 5.5 (Anthropic), fresh session
+Reviewed-by: Jane Doe <jane@example.org>
 ```
 
 | Line | Required for |
 |---|---|
 | `AI-Generation: G0`–`G3` | every PR |
-| `AI-Verification: V0`–`V3` | every PR |
-| `Assisted-by:` tool and model | G1–G3 (one line per tool) |
-| `Verified-by:` verifying model and session | V1–V3 |
-| `Tested-by:` the human who tested | V0 and V3 |
+| `Human-Review: H0`–`H3` | every PR; must match your ticked questions |
+| `AI-Review: A-`, `A0`–`A3` | every PR; must match your ticked questions |
+| `Assisted-by:` tool and model | G1–G3 (one line per tool); not allowed for G0 |
+| `AI-Reviewed-by:` reviewing model and session | A0–A3; not allowed for A- |
+| `Reviewed-by:` the responsible human | every PR |
 
-These lines must stay at the **very end** of the PR description. On squash merge they become [git trailers](https://git-scm.com/docs/git-interpret-trailers) in the commit on `main`, so the declaration travels with the code into mirrors, forks and archived releases.
+These lines must stay at the **very end** of the PR description, each starting at the beginning of its line. `Signed-off-by:` and `Co-authored-by:` lines may be part of the block. With the squash merge settings used in our repositories they become [git trailers](https://git-scm.com/docs/git-interpret-trailers) in the commit on `main`, so the declaration travels with the code into mirrors, forks and archived releases.
 
-An automated check validates the block on every PR into `main` and adds the labels `ai:G*` and `verified:V*`. Each repository can show a badge summarising its declared history.
+An automated check validates the block on every PR into `main` and adds the labels `ai:G*`, `human:H*` and `ai-review:A*`. Each repository can show badges summarising its declared history.
 
 ### Declaring files: AIDECL.toml
 
-The trailers describe each *change*. Repositories that also contain results, data, notebooks or papers, or that are published in a single commit, declare the *files* instead, with [aidecl](https://github.com/industrial-mathematics-group/aidecl) and a path-based `AIDECL.toml` (it works like `REUSE.toml`):
+The trailers describe each *change*. Repositories that also contain results, data, notebooks or papers, or that are published in a single commit, declare the *files* instead. They use [aidecl](https://github.com/industrial-mathematics-group/aidecl) and a path-based `AIDECL.toml`, which works like `REUSE.toml`:
 
 ```bash
 pipx install "git+https://github.com/industrial-mathematics-group/aidecl"
-aidecl init -g G0 -v V0 --tested-by "Jane Doe"                     # default for everything
-aidecl annotate results/ -g G2 -v V0 \
-    --assisted-by "Claude Opus 5.5 (Anthropic)" --tested-by "Jane Doe"   # the exceptions
-aidecl lint                                                         # every file declared?
+aidecl init -g G0 -H H2 -a A- --reviewed-by "Jane Doe"            # default for everything
+aidecl annotate results/ -g G2 -H H1 -a A0 \
+    --assisted-by "Claude Opus 5.5 (Anthropic)" \
+    --ai-reviewed-by "Claude Opus 5.5 (Anthropic), same session" \
+    --reviewed-by "Jane Doe"                                       # the exceptions
+aidecl lint                                                        # every file declared?
 ```
 
-The same levels and rules apply. Text files can carry the declaration in a header comment instead (`aidecl annotate FILE --inline`). If a repository has an `AIDECL.toml`, **update it in the same PR** whenever your change alters how a file was created or verified; the *AI file declarations* check fails if any file is left without a valid declaration.
+The same levels, rules and policy apply. Text files can carry the declaration in a header comment instead (`aidecl annotate FILE --inline`).
+
+If a repository has an `AIDECL.toml`, **update it in the same PR** whenever your change alters how a file was created or reviewed. The *AI file declarations* check fails if any file is left without a valid declaration.
+
+**From the first version of this policy:** the old V0–V3 levels map onto the new scheme:
+
+| Old | New |
+|---|---|
+| V0 | H2, and A- for G0 (for G1–G3 the AI review is unknown: fill it in) |
+| V1 | A1 |
+| V2 | A2 |
+| V3 | H2 + A1 |
+
+`aidecl migrate` converts existing `AIDECL.toml` files and inline tags. Old commit trailers stay as they are and are counted in the badges.
 
 ### Responsibility
 
-- **You are responsible for what you submit**, whoever or whatever wrote it. AI cannot take responsibility for a contribution; the human who opens the PR does.
+- **You are responsible for what you submit**, whoever or whatever wrote it. AI cannot take responsibility for a contribution; the human named in `Reviewed-by` does.
 - Make sure AI output doesn't reproduce code under an incompatible licence. Enable licence or duplication filters where your tool offers them.
 - Answer review questions yourself; don't paste AI-generated replies without reading them.
 - Never put secrets, unpublished data or personal data into third-party AI tools.

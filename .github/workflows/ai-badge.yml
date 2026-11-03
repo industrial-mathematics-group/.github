@@ -1,7 +1,9 @@
 # Reusable workflow: summarises the AI declarations in the history of the default branch
-# and publishes two shields.io endpoint badges to the orphan branch "badges":
+# and publishes three shields.io endpoint badges to the orphan branch "badges":
 #   ai-generation.json    e.g. "G0 40% · G1 35% · G2 25%"
-#   ai-verification.json  e.g. "V0 60% · V3 40%"
+#   ai-human-review.json  e.g. "H1 30% · H2 60% · H3 10%"
+#   ai-review.json        e.g. "A- 40% · A0 20% · A1 40%"
+# Commits with the old V0-V3 trailers are mapped conservatively (unknown parts shown as "unknown").
 # Only commits on the first-parent history that carry an AI-Generation trailer are counted
 # (commits from before the policy are ignored; the count is shown in the job summary).
 name: AI badge
@@ -33,13 +35,40 @@ jobs:
               capture_output=True, text=True, check=True,
           ).stdout
           messages = [m for m in log.split("\x00") if m.strip()]
-          gen, ver = Counter(), Counter()
+
+          def trailer_block(msg):
+              """The trailer paragraph holding the declaration (GitHub may append a separate
+              Co-authored-by paragraph after it, so trailing trailer-only paragraphs are skipped)."""
+              paragraphs = [p for p in re.split(r"\n[ \t]*\n", msg.strip()) if p.strip()]
+              for p in reversed(paragraphs):
+                  lines = p.splitlines()
+                  if not all(re.match(r"^[A-Za-z][A-Za-z0-9-]*:", l) for l in lines):
+                      break
+                  if any(re.match(r"^AI-Generation:", l, re.I) for l in lines):
+                      return p
+              return ""
+
+          def trailer(block, key, pattern):
+              m = re.search(rf"^{key}:[ \t]*({pattern})[ \t]*$", block, re.M | re.I)
+              return m.group(1).upper() if m else None
+
+          gen, hum, air = Counter(), Counter(), Counter()
+          legacy = 0
           for msg in messages:
-              g = re.search(r"^AI-Generation:[ \t]*(G[0-3])[ \t]*$", msg, re.M | re.I)
-              v = re.search(r"^AI-Verification:[ \t]*(V[0-3])[ \t]*$", msg, re.M | re.I)
-              if g:
-                  gen[g.group(1).upper()] += 1
-                  ver[v.group(1).upper() if v else "undeclared"] += 1
+              msg = trailer_block(msg)
+              g = trailer(msg, "AI-Generation", "G[0-3]")
+              if not g:
+                  continue
+              h = trailer(msg, "Human-Review", "H[0-3]")
+              a = trailer(msg, "AI-Review", "A-|A[0-3]")
+              v = trailer(msg, "AI-Verification", "V[0-3]")
+              if h is None and a is None and v:  # first version of the policy (V0-V3), mapped conservatively
+                  legacy += 1
+                  h = {"V0": "H2", "V3": "H2"}.get(v)
+                  a = {"V1": "A1", "V2": "A2", "V3": "A1"}.get(v) or ("A-" if v == "V0" and g == "G0" else None)
+              gen[g] += 1
+              hum[h or "unknown"] += 1
+              air[a or "unknown"] += 1
           declared = sum(gen.values())
 
           def percentages(counts):
@@ -59,23 +88,28 @@ jobs:
               message = " · ".join(f"{k} {pct[k]}%" if pct[k] else f"{k} <1%" for k in shown)
               return {"schemaVersion": 1, "label": label, "message": message, "color": color}
 
-          os.makedirs(os.environ["RUNNER_TEMP"] + "/ai-badges", exist_ok=True)
           out = os.environ["RUNNER_TEMP"] + "/ai-badges/"
-          with open(out + "ai-generation.json", "w") as f:
-              json.dump(badge("AI generation", gen, ["G0", "G1", "G2", "G3"], "4063D8"), f, ensure_ascii=False)
-          with open(out + "ai-verification.json", "w") as f:
-              json.dump(badge("verification", ver, ["V0", "V1", "V2", "V3", "undeclared"], "389826"), f, ensure_ascii=False)
+          os.makedirs(out, exist_ok=True)
+          for name, label, counts, keys, color in (
+              ("ai-generation.json", "AI generation", gen, ["G0", "G1", "G2", "G3"], "4063D8"),
+              ("ai-human-review.json", "human review", hum, ["H0", "H1", "H2", "H3", "unknown"], "389826"),
+              ("ai-review.json", "AI review", air, ["A-", "A0", "A1", "A2", "A3", "unknown"], "9558B2"),
+          ):
+              with open(out + name, "w") as f:
+                  json.dump(badge(label, counts, keys, color), f, ensure_ascii=False)
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
-              s.write(f"### AI declarations\n\n{declared} of {len(messages)} commits on the default branch are declared.\n\n")
+              s.write(f"### AI declarations\n\n{declared} of {len(messages)} commits on the default branch are declared")
+              s.write(f" ({legacy} with the old V0-V3 trailers, mapped conservatively).\n\n" if legacy else ".\n\n")
               s.write("| Level | Commits |\n|---|---|\n")
-              for k in ["G0", "G1", "G2", "G3", "V0", "V1", "V2", "V3"]:
-                  s.write(f"| {k} | {(gen if k[0] == 'G' else ver)[k]} |\n")
+              for counts in (gen, hum, air):
+                  for k, n in sorted(counts.items()):
+                      s.write(f"| {k} | {n} |\n")
           PY
 
       - name: Publish to the badges branch
         env:
-          FILES: ai-generation.json ai-verification.json
+          FILES: ai-generation.json ai-human-review.json ai-review.json
           SRC: ${{ runner.temp }}/ai-badges
           MESSAGE: Update AI declaration badges
         run: |

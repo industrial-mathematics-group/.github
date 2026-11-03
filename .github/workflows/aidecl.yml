@@ -1,7 +1,7 @@
 # Reusable workflow: file-level AI declarations with aidecl (AIDECL.toml / inline tags).
 #   lint    every push and pull request: fails if a file has no valid declaration
-#   badges  pushes to the default branch: publishes aidecl-generation.json and
-#           aidecl-verification.json to the orphan branch "badges"
+#   badges  pushes to the default branch: publishes aidecl-generation.json,
+#           aidecl-human-review.json and aidecl-ai-review.json to the orphan branch "badges"
 # Called from each repository (see workflow-templates/aidecl.yml).
 name: AI file declarations
 
@@ -63,7 +63,7 @@ jobs:
         run: aidecl badge --out "$RUNNER_TEMP/aidecl-badges" --weight "$WEIGHT"
       - name: Publish to the badges branch
         env:
-          FILES: aidecl-generation.json aidecl-verification.json
+          FILES: aidecl-generation.json aidecl-human-review.json aidecl-ai-review.json
           SRC: ${{ runner.temp }}/aidecl-badges
           MESSAGE: Update AI file declaration badges
         run: |
