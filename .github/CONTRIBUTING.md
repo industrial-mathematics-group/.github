@@ -83,6 +83,8 @@ For results and data:
 
 **AI-written content must at least be self-checked:** G1–G3 require at least A0.
 
+**Reviews must be committed:** When committing a change under A1-A3, the review results have to be added in a dedicated review folder as a markdown file. If not noted otherwise in the repository, it is `reviews` and the naming scheme is `commit#` or `pull#` with the respective commit or pull request number. If additional files like test codes need to be bundled, you can create a folder with the same name next to the review. The review folder should be excluded from the AI declaration.
+
 **What counts as an independent session (A1–A3):**
 - It starts **without the generating conversation or its notes**. It sees only the issue, the diff and the repository.
 - It **runs the test suite itself** and reviews the diff for correctness, edge cases and numerical soundness.
