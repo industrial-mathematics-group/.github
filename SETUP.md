@@ -47,7 +47,7 @@ The three dynamic badges show "no declarations yet" until the first declared PR 
 
 For repositories with results, data or papers, or with casual single-commit uploads:
 
-1. **Once for the organisation:** create the public repository `industrial-mathematics-group/aidecl` from the aidecl source and push it. The workflow installs the tool from there; tag a release (e.g. `v0.2.0`) if you want repositories to pin it.
+1. **Once for the organisation:** create the public repository `industrial-mathematics-group/aidecl` from the aidecl source and push it. The workflow installs the tool from there; tag a release (e.g. `v0.3.0`) if you want repositories to pin it.
 2. **Per repository:** add `AIDECL.toml` (`aidecl init …`, `aidecl annotate …`) and the **AI file declarations** workflow (*Actions → New workflow*). It runs `aidecl lint` on every push and PR, and on pushes to `main` it publishes the badges:
 
 ```markdown
@@ -62,17 +62,35 @@ Both systems can run side by side: the PR check and trailer badges describe chan
 
 ## Minimum levels per repository
 
-Put a `[policy]` table into the repository's `AIDECL.toml`. You don't need any annotations for this, just `version = 2` and the policy. Both the PR check and `aidecl lint` enforce it:
+Put a `[policy]` table into the repository's `AIDECL.toml`. You don't need any annotations for this, just `version = 3` and the policy. Both the PR check and `aidecl lint` enforce it:
 
 ```toml
-version = 2
+version = 3
 
 [policy]
 "*" = { human = "H1" }
-G3  = { human = "H2", ai = "A1" }
+G3  = { human = "H2", ai = "A2" }
 ```
 
 The PR check reads the policy from the **base branch**, so a pull request can't lower the bar for itself.
+
+## Updating from the A-, A0–A3 version
+
+The AI review scale moved up by one (A- → A0, A0 → A1, A1 → A2; A3 now means an extensive review or benchmark by a different model).
+
+1. **Existing `AIDECL.toml` files and inline tags:** run `aidecl migrate` (aidecl 0.3.0). It keeps comments and layout, and only changes the AI review levels and the version. Previous A2 values stay A2 with a note: raise them to A3 if the review was extensive or benchmarked. G0 files with the previous A0 get a TODO, since the new scale has no self-check for human-written content. Until a repository is migrated, `aidecl lint` fails with a hint to run `migrate`.
+2. **Policies:** `migrate` converts `ai = ...` in `[policy]` as well. A previous `ai = "A2"` (different model) becomes A2 (new session); change it to A3 to keep requiring a different model.
+3. **Commit trailers on `main`** are not rewritten. Old `A-` trailers count as A0 in the badges. Other values from the previous scale would be read on the new one and show one level too low. To prevent that, give the badge workflow the last commit on `main` that was declared on the previous scale:
+
+   ```yaml
+   jobs:
+     badge:
+       uses: industrial-mathematics-group/.github/.github/workflows/ai-badge.yml@main
+       with:
+         previous-ai-scale-until: 0123abc   # this commit and all before it use A-, A0-A3
+   ```
+4. **Open pull requests** whose description uses the previous ticks or levels fail the check until they're updated to the new template. The `ai-review:A-` label is removed automatically.
+5. **Labels:** the check gives the existing `ai-review:A0`–`A3` labels their new colours and descriptions the first time it uses them. Closed PRs keep their labels, which then read on the new scale. Rename the old labels first (e.g. to `old-ai-review:A1`) if you want to keep their meaning visible.
 
 ## Updating from the V0–V3 version
 

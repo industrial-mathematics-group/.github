@@ -35,7 +35,7 @@ Our code is open source, and releases are archived with DOIs in our [Zenodo comm
 
 Questions, bug reports and contributions are welcome. Please open an issue in the relevant repository; see [CONTRIBUTING](../.github/CONTRIBUTING.md) for details.
 
-**AI tools are welcome** in contributions, as long as their use is declared. Every change to `main` states how it was written (G0 human to G3 AI-autonomous), how thoroughly a human reviewed it (H0 plausibility check to H3 independently validated) and how independently an AI reviewed it (A- none to A3 different model with a full benchmark). See our [AI policy](../.github/CONTRIBUTING.md#ai-assisted-contributions).
+**AI tools are welcome** in contributions, as long as their use is declared. Every change to `main` states how it was written (G0 human to G3 AI-autonomous), how thoroughly a human reviewed it (H0 plausibility check to H3 independently validated) and how thoroughly an AI reviewed it (A0 none to A3 extensive review or benchmark by a different model). See our [AI policy](../.github/CONTRIBUTING.md#ai-assisted-contributions).
 
 ## Contact
 

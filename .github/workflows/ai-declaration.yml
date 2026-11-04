@@ -4,11 +4,12 @@
 # Rules (see CONTRIBUTING.md, "AI-assisted contributions"):
 #   AI-Generation: G0-G3         always
 #   Human-Review: H0-H3          always; must match the ticked H questions of the template
-#   AI-Review: A-, A0-A3         always; must match the ticked A questions of the template
+#   AI-Review: A0-A3             always; must match the ticked A questions of the template
 #   Assisted-by: ...             required for G1-G3, not allowed for G0
-#   AI-Reviewed-by: ...          required for A0-A3, not allowed for A-
+#   AI-Reviewed-by: ...          required for A1-A3, not allowed for A0
 #   Reviewed-by: ...             always (the responsible human)
-#   G1-G3 need at least A0; a [policy] table in the repository's AIDECL.toml can require more.
+#   G1-G3 need at least A1; G0 can't be A1 (no generating session to check itself).
+#   A [policy] table in the repository's AIDECL.toml can require more.
 #   The block must be the last paragraph of the PR description (it becomes git trailers on squash merge).
 #
 # Security: runs on pull_request_target so it can label PRs from forks. It only reads the PR
@@ -50,6 +51,14 @@ jobs:
               policy = data.get("policy", {}) or {}
               if not isinstance(policy, dict):
                   sys.exit("AIDECL.toml: [policy] must be a table")
+              if data.get("version") == 2:
+                  # not migrated yet: the AI review scale moved up by one (A- -> A0, A0 -> A1, A1 -> A2)
+                  print("AIDECL.toml on the base branch is version 2; reading its policy on the old AI review scale. "
+                        "Run 'aidecl migrate' to convert it.")
+                  old = {"A-": "A0", "A0": "A1", "A1": "A2", "A2": "A2", "A3": "A3"}
+                  for req in policy.values():
+                      if isinstance(req, dict) and req.get("ai") in old:
+                          req["ai"] = old[req["ai"]]
               for gen, req in policy.items():
                   if gen != "*" and gen not in ("G0", "G1", "G2", "G3"):
                       sys.exit(f"AIDECL.toml [policy]: unknown key '{gen}' (use \"*\", G0-G3)")
@@ -57,8 +66,8 @@ jobs:
                       sys.exit(f"AIDECL.toml [policy].{gen} must be a table with 'human' and/or 'ai'")
                   if req.get("human", "H0") not in ("H0", "H1", "H2", "H3"):
                       sys.exit(f"AIDECL.toml [policy].{gen}.human must be H0-H3")
-                  if req.get("ai", "A-") not in ("A-", "A0", "A1", "A2", "A3"):
-                      sys.exit(f"AIDECL.toml [policy].{gen}.ai must be A- or A0-A3")
+                  if req.get("ai", "A0") not in ("A0", "A1", "A2", "A3"):
+                      sys.exit(f"AIDECL.toml [policy].{gen}.ai must be A0-A3")
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write(f"json={json.dumps(policy)}\n")
           print("Policy:", json.dumps(policy) if policy else "none (defaults)")
@@ -78,7 +87,7 @@ jobs:
             const LEVELS = {
               'AI-Generation': ['G0', 'G1', 'G2', 'G3'],
               'Human-Review': ['H0', 'H1', 'H2', 'H3'],
-              'AI-Review': ['A-', 'A0', 'A1', 'A2', 'A3'],
+              'AI-Review': ['A0', 'A1', 'A2', 'A3'],
             };
             const rank = (level) => {
               for (const list of Object.values(LEVELS)) { const i = list.indexOf(level); if (i >= 0) return i; }
@@ -116,6 +125,10 @@ jobs:
             }
             const one = (key) => {
               const v = values[key] || [];
+              if (key === 'AI-Review' && v.includes('A-')) {
+                errors.push('"AI-Review: A-" is from the previous scale: no AI review is A0 now (see CONTRIBUTING.md).');
+                return null;
+              }
               if (v.length !== 1 || !LEVELS[key].includes(v[0])) {
                 errors.push(`Expected exactly one "${key}: ${LEVELS[key].join(', ')}" line.`);
                 return null;
@@ -155,21 +168,33 @@ jobs:
               if (m[2] in ticks) errors.push(`The question ${m[2]} appears more than once; keep the template's questions as they are.`);
               ticks[m[2]] = m[1] !== ' ';
             }
-            const derive = (prefix, none) => {
-              const keys = [0, 1, 2, 3].map(i => `${prefix}${i}`);
+            if ('A0' in ticks) errors.push('The AI review questions of the PR template have changed (there is no A0 question any more). Copy the "Review" section from the current template and tick what applies.');
+            // Human review levels build on each other. AI review levels don't have to: a review by
+            // a new session (A2) or a different model (A3) counts even if the generating session
+            // didn't check itself. The level is the highest ticked one.
+            const derive = (keys, none, cumulative) => {
               const missing = keys.filter(k => !(k in ticks));
               if (missing.length) {
                 errors.push(`The review questions ${missing.join(', ')} from the PR template are missing. Copy the "Review" section back from the template and tick what applies.`);
                 return undefined;
               }
               let level = none;
-              for (const k of keys) { if (ticks[k]) level = k; else break; }
-              const gap = keys.find((k, i) => ticks[k] && keys.slice(0, i).some(j => !ticks[j]));
-              if (gap) errors.push(`You ticked ${gap} but not every level below it; the levels build on each other.`);
+              if (cumulative) {
+                for (const k of keys) { if (ticks[k]) level = k; else break; }
+                const gap = keys.find((k, i) => ticks[k] && keys.slice(0, i).some(j => !ticks[j]));
+                if (gap) errors.push(`You ticked ${gap} but not every level below it; the human review levels build on each other.`);
+              } else {
+                for (const k of keys) if (ticks[k]) level = k;
+              }
               return level;
             };
-            const hTicked = derive('H', null);
-            const aTicked = derive('A', 'A-');
+            const hTicked = derive(['H0', 'H1', 'H2', 'H3'], null, true);
+            let aTicked;
+            if (g === 'G0' && ticks.A1) {
+              errors.push('A1 (self-check) is for AI-written changes; for a human-written change (G0) any AI review is A2 or A3. Untick A1.');
+            } else {
+              aTicked = derive(['A1', 'A2', 'A3'], 'A0', false);
+            }
             if (hTicked === null) errors.push('Tick at least H0: a human review is required for every change.');
             if (h && hTicked && h !== hTicked) errors.push(`Your ticked questions correspond to ${hTicked}, but the block says Human-Review: ${h}.`);
             if (a && aTicked !== undefined && a !== aTicked) errors.push(`Your ticked questions correspond to ${aTicked}, but the block says AI-Review: ${a}.`);
@@ -180,17 +205,19 @@ jobs:
             if (g && g !== 'G0' && !has('Assisted-by')) errors.push(`${g} needs at least one "Assisted-by:" line naming the tool and model.`);
             if (g === 'G0' && has('Assisted-by')) errors.push('G0 means no AI was used, so "Assisted-by:" must be removed (or choose G1-G3).');
             if (!has('Reviewed-by')) errors.push('A "Reviewed-by:" line naming the responsible human is required.');
-            if (a && a !== 'A-' && !has('AI-Reviewed-by')) errors.push(`${a} needs an "AI-Reviewed-by:" line naming the reviewing model and session.`);
-            if (a === 'A-' && has('AI-Reviewed-by')) errors.push('A- means no AI review, so "AI-Reviewed-by:" must be removed.');
+            if (a && a !== 'A0' && !has('AI-Reviewed-by')) errors.push(`${a} needs an "AI-Reviewed-by:" line naming the reviewing model and session.`);
+            if (a === 'A0' && has('AI-Reviewed-by')) errors.push('A0 means no AI review, so "AI-Reviewed-by:" must be removed.');
+            if (g === 'G0' && a === 'A1' && !ticks.A1) errors.push('G0 can\'t be A1: a human-written change has no generating AI session to check itself. Any AI review of it is A2 or A3.');
 
             // ---------- minimum levels ----------
             if (g && h && a) {
               const req = { ...(policy['*'] || {}), ...(policy[g] || {}) };
               let minA = req.ai;
-              if (g !== 'G0' && (!minA || rank(minA) < rank('A0'))) minA = 'A0';
+              if (g !== 'G0' && (!minA || rank(minA) < rank('A1'))) minA = 'A1';
+              if (g === 'G0' && minA === 'A1') minA = 'A2';   // no self-check for human-written content
               if (req.human && rank(h) < rank(req.human)) errors.push(`${g} requires at least ${req.human} in this repository (declared ${h}).`);
-              if (minA && rank(a) < rank(minA)) errors.push(g !== 'G0' && minA === 'A0'
-                ? `AI-written content (${g}) must at least be self-checked: AI-Review A0 or higher (declared ${a}).`
+              if (minA && rank(a) < rank(minA)) errors.push(g !== 'G0' && minA === 'A1'
+                ? `AI-written content (${g}) must at least be self-checked: AI-Review A1 or higher (declared ${a}).`
                 : `${g} requires at least ${minA} in this repository (declared ${a}).`);
             }
 
@@ -219,16 +246,23 @@ jobs:
             const info = {
               G0: ['389826', 'Human-written'], G1: ['4063D8', 'AI-assisted'], G2: ['9558B2', 'AI-generated'], G3: ['CB3C33', 'AI-autonomous'],
               H0: ['C9D1E4', 'Human: plausibility check'], H1: ['9AA3B8', 'Human: tested'], H2: ['5A6378', 'Human: reviewed line by line'], H3: ['1B2238', 'Human: independently validated'],
-              'A-': ['EDEDED', 'No AI review'], A0: ['F3E0C2', 'AI: self-check'], A1: ['E8B86D', 'AI: independent session'], A2: ['D08A1E', 'AI: independent model'], A3: ['8A5A0B', 'AI: independent model with benchmark'],
+              A0: ['EDEDED', 'No AI review'], A1: ['F3E0C2', 'AI: self-check'], A2: ['E8B86D', 'AI: review by a new session'], A3: ['8A5A0B', 'AI: extensive review or benchmark by a different model'],
             };
             const wanted = [`ai:${g}`, `human:${h}`, `ai-review:${a}`];
             for (const name of wanted) {
               const level = name.split(':')[1];
+              const [color, description] = info[level];
+              let existing = null;
               try {
-                await github.rest.issues.getLabel({ owner, repo, name });
+                existing = (await github.rest.issues.getLabel({ owner, repo, name })).data;
               } catch (e) {
                 if (e.status !== 404) throw e;
-                await github.rest.issues.createLabel({ owner, repo, name, color: info[level][0], description: info[level][1] });
+              }
+              if (!existing) {
+                await github.rest.issues.createLabel({ owner, repo, name, color, description });
+              } else if (existing.description !== description || existing.color.toLowerCase() !== color.toLowerCase()) {
+                // e.g. ai-review:A1 from the previous scale, where it meant "independent session"
+                await github.rest.issues.updateLabel({ owner, repo, name, color, description });
               }
             }
             for (const name of await currentLabels()) {

@@ -38,9 +38,9 @@ We **welcome the use of AI tools**: assistants, code generation and autonomous a
 
 - **G**: how much of it an AI generated;
 - **H**: how thoroughly a human reviewed it (always required: a human is responsible for every contribution);
-- **A**: how independently an AI reviewed it.
+- **A**: how thoroughly an AI reviewed it.
 
-A declaration reads like **G2 · H2 · A1**: AI-generated, reviewed line by line by a human, and checked by an independent AI session.
+A declaration reads like **G2 · H2 · A2**: AI-generated, reviewed line by line by a human, and reviewed by a new AI session.
 
 The declaration is only required for pull requests into `main`. Work on your own branches as you like; the template and the automated check only apply when you open a PR.
 
@@ -75,20 +75,22 @@ For results and data:
 
 | Level | Name | Meaning |
 |---|---|---|
-| **A-** | None | No AI reviewed the change. |
-| **A0** | Self-check | The generating AI session ran the tests and checked its own output. |
-| **A1** | Independent session | A **fresh** session of the same model reviewed the change and ran the tests. |
-| **A2** | Independent model | A fresh session of a **different model of similar or higher capability** did so. |
-| **A3** | Benchmarked | A2, plus a **full benchmark**: the reviewing model wrote new tests and compared against reference methods or solutions. It is the AI counterpart of H3. |
+| **A0** | None | No AI reviewed the change. |
+| **A1** | Self-check | The AI session that wrote the change ran the tests and checked its own output. |
+| **A2** | New session | A **new** session, without the generating conversation, reviewed the final change and ran the tests. Any model counts, including the one that wrote the change. |
+| **A3** | Different model, extensive | A **different model of similar or higher capability** reviewed the change extensively or benchmarked it: new tests, comparison with reference methods or solutions. It is the AI counterpart of H3. |
 
-**AI-written content must at least be self-checked:** G1–G3 require at least A0.
+**AI-written content must at least be self-checked:** G1–G3 require at least A1.
 
-**Reviews must be committed:** When committing a change under A1-A3, the review results have to be added in a dedicated review folder as a markdown file. If not noted otherwise in the repository, it is `reviews` and the naming scheme is `commit#` or `pull#` with the respective commit or pull request number. If additional files like test codes need to be bundled, you can create a folder with the same name next to the review. The review folder should be excluded from the AI declaration.
+**Human-written content (G0) has no self-check:** there is no generating session, so any AI review of it counts as A2 (or A3). G0 is never A1.
 
-**What counts as an independent session (A1–A3):**
+**Reviews must be committed:** When committing a change under A2-A3, the review results have to be added in a dedicated review folder as a markdown file. If not noted otherwise in the repository, it is `reviews` and the naming scheme is `commit#` or `pull#` with the respective commit or pull request number. If additional files like test codes need to be bundled, you can create a folder with the same name next to the review. The review folder should be excluded from the AI declaration.
+
+**What counts as a review session (A2–A3):**
 - It starts **without the generating conversation or its notes**. It sees only the issue, the diff and the repository.
 - It **runs the test suite itself** and reviews the diff for correctness, edge cases and numerical soundness.
 - Its findings are addressed before the PR is marked ready. Mention notable findings in the PR.
+- If several models were involved, A3 needs a reviewing model that did not write any part of the change. If you're unsure whether a model counts as similarly capable, declare A2.
 
 ### Minimum levels per repository
 
@@ -97,23 +99,23 @@ A repository can require more through a `[policy]` table in its `AIDECL.toml`. T
 ```toml
 [policy]
 "*" = { human = "H1" }               # default for every generation level
-G3  = { human = "H2", ai = "A1" }    # stricter for autonomous agents
+G3  = { human = "H2", ai = "A2" }    # stricter for autonomous agents
 ```
 
-Without a policy, the minimum is H0 for everything, plus A0 for G1–G3.
+Without a policy, the minimum is H0 for everything, plus A1 for G1–G3. For G0, a minimum of A1 means A2.
 
 ### How to declare
 
-The PR template asks a few **yes/no questions** about the human and the AI review. Tick what applies; the check derives your H and A levels from the ticks. Keep the questions as they are in the template: the check needs all of them, reads only top-level boxes outside comments and code blocks, and fails if one is missing or appears twice.
+The PR template asks a few **yes/no questions** about the human and the AI review. Tick what applies; the check derives your H and A levels from the ticks. The human review levels build on each other. For the AI review, tick every check that happened; the highest one counts, so a review by a new session is A2 even without a self-check. Keep the questions as they are in the template: the check needs all of them, reads only top-level boxes outside comments and code blocks, and fails if one is missing or appears twice.
 
 The template then ends with a block of trailer lines. Fill them in and **delete lines that don't apply**:
 
 ```
 AI-Generation: G2
 Human-Review: H2
-AI-Review: A1
+AI-Review: A2
 Assisted-by: Claude Opus 5.5 (Anthropic)
-AI-Reviewed-by: Claude Opus 5.5 (Anthropic), fresh session
+AI-Reviewed-by: Claude Opus 5.5 (Anthropic), new session
 Reviewed-by: Jane Doe <jane@example.org>
 ```
 
@@ -121,9 +123,9 @@ Reviewed-by: Jane Doe <jane@example.org>
 |---|---|
 | `AI-Generation: G0`–`G3` | every PR |
 | `Human-Review: H0`–`H3` | every PR; must match your ticked questions |
-| `AI-Review: A-`, `A0`–`A3` | every PR; must match your ticked questions |
+| `AI-Review: A0`–`A3` | every PR; must match your ticked questions |
 | `Assisted-by:` tool and model | G1–G3 (one line per tool); not allowed for G0 |
-| `AI-Reviewed-by:` reviewing model and session | A0–A3; not allowed for A- |
+| `AI-Reviewed-by:` reviewing model and session | A1–A3; not allowed for A0 |
 | `Reviewed-by:` the responsible human | every PR |
 
 These lines must stay at the **very end** of the PR description, each starting at the beginning of its line. `Signed-off-by:` and `Co-authored-by:` lines may be part of the block. With the squash merge settings used in our repositories they become [git trailers](https://git-scm.com/docs/git-interpret-trailers) in the commit on `main`, so the declaration travels with the code into mirrors, forks and archived releases.
@@ -136,8 +138,8 @@ The trailers describe each *change*. Repositories that also contain results, dat
 
 ```bash
 pipx install "git+https://github.com/industrial-mathematics-group/aidecl"
-aidecl init -g G0 -H H2 -a A- --reviewed-by "Jane Doe"            # default for everything
-aidecl annotate results/ -g G2 -H H1 -a A0 \
+aidecl init -g G0 -H H2 -a A0 --reviewed-by "Jane Doe"            # default for everything
+aidecl annotate results/ -g G2 -H H1 -a A1 \
     --assisted-by "Claude Opus 5.5 (Anthropic)" \
     --ai-reviewed-by "Claude Opus 5.5 (Anthropic), same session" \
     --reviewed-by "Jane Doe"                                       # the exceptions
@@ -148,16 +150,25 @@ The same levels, rules and policy apply. Text files can carry the declaration in
 
 If a repository has an `AIDECL.toml`, **update it in the same PR** whenever your change alters how a file was created or reviewed. The *AI file declarations* check fails if any file is left without a valid declaration.
 
-**From the first version of this policy:** the old V0–V3 levels map onto the new scheme:
+**From earlier versions of this policy.** The previous version had the AI review levels A-, A0–A3; the scale moved up by one:
 
-| Old | New |
+| Previous | Now |
 |---|---|
-| V0 | H2, and A- for G0 (for G1–G3 the AI review is unknown: fill it in) |
-| V1 | A1 |
-| V2 | A2 |
-| V3 | H2 + A1 |
+| A- (none) | A0 |
+| A0 (self-check) | A1 (for G0: fill it in, since human-written content has no self-check) |
+| A1 (independent session) | A2 |
+| A2 (different model) | A2, or A3 if the review was extensive or benchmarked |
+| A3 (different model with benchmark) | A3 |
 
-`aidecl migrate` converts existing `AIDECL.toml` files and inline tags. Old commit trailers stay as they are and are counted in the badges.
+The first version had one verification axis, V0–V3:
+
+| Old | Now |
+|---|---|
+| V0 | H2, and A0 for G0 (for G1–G3 the AI review is unknown: fill it in) |
+| V1, V2 | A2 |
+| V3 | H2 + A2 |
+
+`aidecl migrate` converts existing `AIDECL.toml` files and inline tags. Old commit trailers stay as they are and are counted in the badges: V0–V3 trailers are converted, and `A-` counts as A0. For other trailers on the previous scale, the repository's badge workflow needs the last such commit (`previous-ai-scale-until`, see SETUP.md); otherwise they show one level too low.
 
 ### Responsibility
 
