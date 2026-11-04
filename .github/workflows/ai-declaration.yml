@@ -21,8 +21,9 @@ on:
 
 jobs:
   check:
-    # Bot PRs (CompatHelper, Dependabot, ...) are exempt. A skipped required check counts as passed.
-    if: github.event.pull_request.user.type != 'Bot'
+    # Dependency update bots are exempt: Dependabot, and github-actions[bot] for CompatHelper.
+    # A skipped required check counts as passed, so other bots and AI agents must declare like everyone else.
+    if: ${{ !contains(fromJSON('["dependabot[bot]", "github-actions[bot]"]'), github.event.pull_request.user.login) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

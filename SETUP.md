@@ -113,7 +113,7 @@ feature branch ──(anything goes)──► PR into main
 ```
 
 - The declaration is only enforced for PRs into `main`. Commits on other branches are not checked. Draft PRs are checked too, so problems show up early, but only the state at merge counts.
-- PRs opened by bots (CompatHelper, Dependabot) skip the check.
+- PRs opened by dependency update bots (Dependabot, and CompatHelper as `github-actions[bot]`) skip the check. Other bots and AI agents don't.
 - Commits from before the policy have no trailers and are not counted in the badges.
 
 ## Forgejo mirrors
