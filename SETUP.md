@@ -10,7 +10,8 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/workflows/ai-declaration.yml` | Reusable workflow: checks the AI declaration, sets labels |
 | `.github/workflows/ai-badge.yml` | Reusable workflow: publishes the README badges |
 | `.github/workflows/aidecl.yml` | Reusable workflow: file-level declarations with aidecl (lint + badges) |
-| `workflow-templates/` | One-click versions of the three caller workflows (*Actions → New workflow*) |
+| `.github/workflows/claude.yml`, `claude/` | The @claude assistant (see [below](#the-claude-assistant)) |
+| `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
 
 This repository must be **public** for the defaults and the reusable workflows to work.
@@ -59,6 +60,95 @@ For repositories with results, data or papers, or with casual single-commit uplo
 3. Optionally require the status check **`aidecl / lint`** on `main`.
 
 Both systems can run side by side: the PR check and its badges describe changes, aidecl describes files. They use different badge files on the same `badges` branch.
+
+## The @claude assistant
+
+Lets group members ask Claude in issues and pull requests, mainly to write `AIDECL.toml` declarations and
+website entries without touching TOML or git. Claude runs in GitHub Actions through the official
+[Claude GitHub App](https://github.com/apps/claude) and [claude-code-action](https://github.com/anthropics/claude-code-action).
+It pushes a branch and posts a "Create PR" link; the person who asked opens the PR, ticks their review level and merges.
+
+| Path | Purpose |
+|---|---|
+| `.github/workflows/claude.yml` | Reusable workflow: installs aidecl, loads the org guide, runs Claude |
+| `workflow-templates/claude.yml` | One-click caller workflow for each repository |
+| `claude/ORG-GUIDE.md` | Claude's instructions for every repository: AI levels, aidecl, the PR declaration |
+| `claude/README.md` | Guide for group members: how to ask Claude |
+| `claude/examples/website-CLAUDE.md` | Starting point for the website repository's `CLAUDE.md` |
+| `.github/ISSUE_TEMPLATE/claude-*.yml` | Issue forms: declare files, add to the website, ask for something else |
+
+### Once for the organisation
+
+1. **Install the app.** [github.com/apps/claude](https://github.com/apps/claude) → *Install* →
+   `industrial-mathematics-group` → **Only select repositories** → pick the repositories that should have
+   Claude. Change the selection later under *Organisation settings → GitHub Apps → Claude → Configure*.
+2. **Create an API key.** In the [Claude Console](https://platform.claude.com), create a workspace (e.g.
+   `github-actions`) with a monthly spend limit, then an API key in that workspace.
+   A `CLAUDE_CODE_OAUTH_TOKEN` (`claude setup-token`, Pro/Max plan) works too, but bills one person's
+   subscription for the whole group.
+3. **Store it as an organisation secret.** *Organisation settings → Secrets and variables → Actions →
+   New organization secret*: name `ANTHROPIC_API_KEY`, repository access **Selected repositories** (the same ones
+   as in step 1).
+4. **Allow the action.** If *Actions → General → Policies* restricts actions, add `anthropics/claude-code-action@*`.
+   The reusable workflow also needs this repository's *Access* setting from section 1 (already set for the
+   other reusable workflows).
+5. **Members need write access.** Claude ignores anyone without write access to the repository. Give the group
+   a team (e.g. `members`) with the *Write* role on the repositories with Claude.
+6. **Make the guide known.** Link [`claude/README.md`](claude/README.md) from the organisation profile or tell the
+   group about it.
+
+### Per repository
+
+1. *Actions → New workflow* → **Claude assistant (@claude)** from the "By Industrial Mathematics Group" section →
+   *Configure* → *Commit changes*. Uncomment `node-version: "22"` for the website.
+2. Optional: a `CLAUDE.md` in the repository root with what Claude should know about it (folder layout, what the
+   files are, special declaration defaults). For the website, start from `claude/examples/website-CLAUDE.md`.
+3. Optional: labels `ai-declaration`, `website` and `claude-request`, which the issue forms apply if they exist.
+4. Test it: open an issue with the form **Claude: ask for something else** and ask
+   "Summarise what this repository contains". A progress comment should appear within a minute or two.
+
+The issue forms are organisation defaults: they appear in every repository without its own `ISSUE_TEMPLATE`
+folder. In repositories without the Claude workflow nothing happens when they are used. A repository with its
+own templates can copy the `claude-*.yml` forms it wants.
+
+### Settings you may want to change
+
+In the caller workflow (`with:`):
+
+| Input | Default | Use |
+|---|---|---|
+| `model` / `model-name` | `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Anthropic)` | A stronger model, e.g. `claude-opus-5-5` / `Claude Opus 5.5 (Anthropic)`. Change both together: `model-name` is what Claude writes into declarations. |
+| `node-version` | none | `"22"` for repositories that build with Node (the website) |
+| `max-turns` | `40` | Cost guard per run |
+| `aidecl-ref`, `guide-ref` | `main` | Pin aidecl or the guide to a tag |
+
+Organisation-wide behaviour (levels, wording, PR declaration) is changed in `claude/ORG-GUIDE.md`; every
+repository picks it up on its next run.
+
+### How a request runs
+
+```
+issue form / "@claude" comment
+   │  caller workflow in the repository (skipped unless "@claude" is in the text)
+   ▼
+reusable workflow: checkout ─► pip install aidecl ─► ORG-GUIDE.md as ~/.claude/CLAUDE.md
+   ▼
+Claude (as the Claude app): reads issue + repo CLAUDE.md, runs aidecl annotate / lint or edits files,
+pushes branch claude/issue-<n>-…, posts "Create PR" link with the PR template pre-ticked (G3, model, A1)
+   ▼
+person opens PR ─► ticks H0–H3 and "I take responsibility" ─► declaration / check green ─► merge
+```
+
+### Costs and safety
+
+- Each run costs a few cents to a few dollars, depending on model and task; the Console shows usage per
+  workspace. `max-turns` and the 30-minute timeout cap a single run.
+- Claude only acts for users with write access, cannot approve or merge PRs, and never pushes to `main`.
+  On PRs, the action reads `CLAUDE.md` and `.claude/` from the base branch, so a PR can't change Claude's rules.
+- Issues in public repositories are public. Point people to private repositories for unpublished work.
+- Later, you can replace the API key with [Workload Identity Federation](https://github.com/anthropics/claude-code-action/blob/main/docs/setup.md#workload-identity-federation)
+  (no stored secret), or use your own GitHub App for a custom bot name
+  ([docs](https://github.com/anthropics/claude-code-action/blob/main/docs/setup.md#using-a-custom-github-app)).
 
 ## Minimum levels per repository
 

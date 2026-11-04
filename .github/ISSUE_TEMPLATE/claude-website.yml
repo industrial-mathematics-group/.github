@@ -1,0 +1,69 @@
+name: "Claude: add something to the website"
+description: Claude adds a publication, talk, software, person or news item to the group website.
+title: "Website: "
+labels: ["website"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form in the **website** repository. Claude writes the entry in the site's format, builds the
+        site to check it, and posts a link to open the pull request, where you can see a preview.
+        Fill in what you have; Claude asks if something is missing.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What do you want to add?
+      options:
+        - Publication (journal article or proceedings)
+        - Preprint
+        - Thesis
+        - Talk or poster
+        - Software
+        - Person
+        - News
+    validations:
+      required: true
+  - type: input
+    id: title
+    attributes:
+      label: Title (or name, for a person)
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: |
+        Publications: authors, journal or venue, year, volume/pages. Talks: event, place, date.
+        Software: repository. Person: role, research interests, email, ORCID.
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: DOI or link
+      placeholder: "https://doi.org/10.xxxx/..."
+  - type: input
+    id: date
+    attributes:
+      label: Date
+      description: Publication, talk or news date.
+      placeholder: "2026-11-04"
+  - type: textarea
+    id: summary
+    attributes:
+      label: Abstract or short text
+      description: Paste the abstract, or a few sentences for news. Claude doesn't invent text; empty stays empty.
+  - type: input
+    id: related
+    attributes:
+      label: Related repositories or entries
+      description: Code, data or earlier entries this belongs to.
+      placeholder: "industrial-mathematics-group/HyperCloud.jl"
+  - type: checkboxes
+    id: go
+    attributes:
+      label: Start
+      options:
+        - label: "@claude please add this to the website"
+          required: true
