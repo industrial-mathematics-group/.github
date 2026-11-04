@@ -25,8 +25,8 @@ This repository must be **public** for the defaults and the reusable workflows t
 
 1. **Add the workflows.** Go to *Actions → New workflow* and pick **AI declaration check** and **AI declaration badges** (and **AI file declarations** for repositories that declare files with aidecl) from the "By Industrial Mathematics Group" section. Or copy them by hand into `.github/workflows/` and replace `$default-branch` with `main`.
 2. **Merge settings** (*Settings → General → Pull Requests*):
-   - allow **squash merging** only,
-   - default squash commit message: **"Pull request title and description"**. This turns the declaration block into git trailers on `main`.
+   - allow **merge commits** only, so the full history of each PR is kept,
+   - default merge commit message: **"Pull request title and description"**. This puts the ticked declaration questions into the merge commit on `main`, where the badges read them. Merge on GitHub, not locally: a local merge doesn't carry the description.
 3. **Protect `main`** (*Settings → Rules → Rulesets*, or *Branches → Branch protection*):
    - require a pull request before merging,
    - require the status check **`declaration / check`**.
@@ -58,7 +58,7 @@ For repositories with results, data or papers, or with casual single-commit uplo
 
 3. Optionally require the status check **`aidecl / lint`** on `main`.
 
-Both systems can run side by side: the PR check and trailer badges describe changes, aidecl describes files. They use different badge files on the same `badges` branch.
+Both systems can run side by side: the PR check and its badges describe changes, aidecl describes files. They use different badge files on the same `badges` branch.
 
 ## Minimum levels per repository
 
@@ -73,6 +73,15 @@ G3  = { human = "H2", ai = "A2" }
 ```
 
 The PR check reads the policy from the **base branch**, so a pull request can't lower the bar for itself.
+
+## Updating from the trailer lines to the ticked declaration
+
+The PR template no longer ends in trailer lines (`AI-Generation:`, `Reviewed-by:`, ...): the check derives everything from the ticked questions.
+
+1. **Merge settings** of each repository: switch to merge commits with the message "Pull request title and description" (section 2 above). With squash merges and that message, the ticks still reach `main`, but the branch history doesn't.
+2. **Repositories with their own PR template** (`.github/pull_request_template.md`): copy the new "AI declaration" section into it. The others use this repository's template.
+3. **Open pull requests** fail the check until their description has the new "AI declaration" section and no trailer lines.
+4. **History:** commits declared with trailers keep counting in the badges; nothing needs to be rewritten.
 
 ## Updating from the A-, A0–A3 version
 
@@ -106,7 +115,7 @@ feature branch ──(anything goes)──► PR into main
                                      │  template asks for the declaration
                                      │  "declaration / check" validates it, sets ai:G* / human:H* / ai-review:A* labels
                                      ▼
-                              squash merge ──► commit on main with trailers
+                              merge commit ──► "title and description" on main, with the ticks
                                                  │
                                                  ▼
                                     "AI badge" workflow ──► badges branch ──► README badges
@@ -114,8 +123,8 @@ feature branch ──(anything goes)──► PR into main
 
 - The declaration is only enforced for PRs into `main`. Commits on other branches are not checked. Draft PRs are checked too, so problems show up early, but only the state at merge counts.
 - PRs opened by dependency update bots (Dependabot, and CompatHelper as `github-actions[bot]`) skip the check. Other bots and AI agents don't.
-- Commits from before the policy have no trailers and are not counted in the badges.
+- Commits from before the policy have no declaration and are not counted in the badges. Commits declared with the trailer lines of earlier templates still count.
 
 ## Forgejo mirrors
 
-The trailers are part of the commit messages, so they are mirrored as-is. The checks and badges run on GitHub only.
+The declarations are part of the merge commit messages, so they are mirrored as-is. The checks and badges run on GitHub only.

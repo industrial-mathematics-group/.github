@@ -30,7 +30,7 @@ julia --project -e 'using Pkg; Pkg.test()'
 - Keep each pull request focused on one change. Large or unfocused PRs may be asked to be split.
 - Describe *what* changes and *why*, and link the related issue.
 - You must be able to explain your change and answer review questions in your own words.
-- PRs are merged with **squash merge**: the PR title and description become the commit message on `main`, including the AI declaration lines at the end.
+- PRs are merged with a **merge commit**, so the full history of the branch is kept. The PR title and description become the merge commit's message on `main`, including the ticked AI declaration.
 
 ## AI-assisted contributions
 
@@ -106,35 +106,21 @@ Without a policy, the minimum is H0 for everything, plus A1 for G1–G3. For G0,
 
 ### How to declare
 
-The PR template asks a few **yes/no questions** about the human and the AI review. Tick what applies; the check derives your H and A levels from the ticks. The human review levels build on each other. For the AI review, tick every check that happened; the highest one counts, so a review by a new session is A2 even without a self-check. Keep the questions as they are in the template: the check needs all of them, reads only top-level boxes outside comments and code blocks, and fails if one is missing or appears twice.
+The **AI declaration** section of the PR template asks a few questions. Tick what applies; the check derives the whole declaration from the ticks:
 
-The template then ends with a block of trailer lines. Fill them in and **delete lines that don't apply**:
+- **Generation:** tick exactly one of G0–G3.
+- **AI models:** for G1–G3, tick the model families that wrote parts of the change (Claude Fable, Opus or Sonnet; GPT Astra, Sol or Terra), or tick **Other** and write the tool and model after it, e.g. `Other: Gemini 3 Pro (Google)`. For G0, leave them all unticked.
+- **Human review:** tick every level you did. They build on each other, so H2 means H0, H1 and H2 are ticked.
+- **AI review:** tick every check that happened; the highest one counts, so a review by a new session is A2 even without a self-check. Leave all unticked for A0. For A3, write the reviewing model after `Model:`. For A2, the reviewing model is taken to be the one that wrote the change, unless you name another after `Model, if not one of the above:`.
+- **Responsible human:** the person who opens the PR, who also ticks *I take responsibility*. A PR opened by a bot or app account adds a line `Responsible person: @login` instead. Dependency update bots (Dependabot, CompatHelper) skip the check.
 
-```
-AI-Generation: G2
-Human-Review: H2
-AI-Review: A2
-Assisted-by: Claude Opus 5.5 (Anthropic)
-AI-Reviewed-by: Claude Opus 5.5 (Anthropic), new session
-Reviewed-by: Jane Doe <jane@example.org>
-```
+Keep the questions as they are in the template: the check needs all of them, reads only top-level boxes outside comments and code blocks, and fails if one is missing or appears twice. There are no trailer lines to fill in; the check fails on leftover `AI-Generation:`-style lines from the previous template.
 
-| Line | Required for |
-|---|---|
-| `AI-Generation: G0`–`G3` | every PR |
-| `Human-Review: H0`–`H3` | every PR; must match your ticked questions |
-| `AI-Review: A0`–`A3` | every PR; must match your ticked questions |
-| `Assisted-by:` tool and model | G1–G3 (one line per tool); not allowed for G0 |
-| `AI-Reviewed-by:` reviewing model and session | A1–A3; not allowed for A0 |
-| `Reviewed-by:` the responsible human | every PR |
-
-These lines must stay at the **very end** of the PR description, each starting at the beginning of its line. `Signed-off-by:` and `Co-authored-by:` lines may be part of the block. With the squash merge settings used in our repositories they become [git trailers](https://git-scm.com/docs/git-interpret-trailers) in the commit on `main`, so the declaration travels with the code into mirrors, forks and archived releases.
-
-An automated check validates the block on every PR into `main` and adds the labels `ai:G*`, `human:H*` and `ai-review:A*`. Each repository can show badges summarising its declared history.
+The check runs on every PR into `main`, adds the labels `ai:G*`, `human:H*` and `ai-review:A*`, and shows the derived declaration in its job summary, in the same keys as `AIDECL.toml`. Our repositories merge PRs with a merge commit whose message is the **PR title and description**, so the ticked questions become part of the history on `main` and travel with the code into mirrors, forks and archived releases. Each repository can show badges summarising its declared history.
 
 ### Declaring files: AIDECL.toml
 
-The trailers describe each *change*. Repositories that also contain results, data, notebooks or papers, or that are published in a single commit, declare the *files* instead. They use [aidecl](https://github.com/industrial-mathematics-group/aidecl) and a path-based `AIDECL.toml`, which works like `REUSE.toml`:
+The PR declaration describes each *change*. Repositories that also contain results, data, notebooks or papers, or that are published in a single commit, declare the *files* instead. They use [aidecl](https://github.com/industrial-mathematics-group/aidecl) and a path-based `AIDECL.toml`, which works like `REUSE.toml`:
 
 ```bash
 pipx install "git+https://github.com/industrial-mathematics-group/aidecl"
@@ -168,11 +154,11 @@ The first version had one verification axis, V0–V3:
 | V1, V2 | A2 |
 | V3 | H2 + A2 |
 
-`aidecl migrate` converts existing `AIDECL.toml` files and inline tags. Old commit trailers stay as they are and are counted in the badges: V0–V3 trailers are converted, and `A-` counts as A0. For other trailers on the previous scale, the repository's badge workflow needs the last such commit (`previous-ai-scale-until`, see SETUP.md); otherwise they show one level too low.
+`aidecl migrate` converts existing `AIDECL.toml` files and inline tags. Commits declared with the trailer lines of earlier templates stay as they are and are counted in the badges: V0–V3 trailers are converted, and `A-` counts as A0. For other trailers on the previous scale, the repository's badge workflow needs the last such commit (`previous-ai-scale-until`, see SETUP.md); otherwise they show one level too low.
 
 ### Responsibility
 
-- **You are responsible for what you submit**, whoever or whatever wrote it. AI cannot take responsibility for a contribution; the human named in `Reviewed-by` does.
+- **You are responsible for what you submit**, whoever or whatever wrote it. AI cannot take responsibility for a contribution; the human who opens the PR (or is named as the responsible person) does.
 - Make sure AI output doesn't reproduce code under an incompatible licence. Enable licence or duplication filters where your tool offers them.
 - Answer review questions yourself; don't paste AI-generated replies without reading them.
 - Never put secrets, unpublished data or personal data into third-party AI tools.

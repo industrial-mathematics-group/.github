@@ -3,10 +3,13 @@
 #   ai-generation.json    e.g. "G0 40% · G1 35% · G2 25%"
 #   ai-human-review.json  e.g. "H1 30% · H2 60% · H3 10%"
 #   ai-review.json        e.g. "A0 40% · A1 20% · A2 40%"
+# The declaration of a merged PR is read from its merge commit, whose message is the PR title
+# and description (see SETUP.md): the ticked G, H and A questions of the PR template.
+# Older commits declared with trailer lines (AI-Generation: ...) are read from those.
 # Commits with the old V0-V3 trailers are mapped conservatively (unknown parts shown as "unknown").
 # "AI-Review: A-" (previous scale) counts as A0. Commits up to the input previous-ai-scale-until
 # (a commit SHA on main) are read on the previous AI review scale (A0 -> A1, A1 -> A2).
-# Only commits on the first-parent history that carry an AI-Generation trailer are counted
+# Only commits on the first-parent history that carry a declaration are counted
 # (commits from before the policy are ignored; the count is shown in the job summary).
 name: AI badge
 
@@ -74,9 +77,49 @@ jobs:
               m = re.search(rf"^{key}:[ \t]*({pattern})[ \t]*$", block, re.M | re.I)
               return m.group(1).upper() if m else None
 
+          def ticked_levels(msg):
+              """G, H and A from the ticked questions of the PR template, or None if the message has
+              no ticked G question. Like the PR check, it reads only top-level boxes outside HTML
+              comments and fenced code blocks. The check made sure the ticks were valid at merge."""
+              text = re.sub(r"<!--.*?(-->|\Z)", "", msg, flags=re.S)
+              ticks, fence = {}, None
+              for line in text.splitlines():
+                  f = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+                  if fence:
+                      if f and f.group(1)[0] == fence[0] and len(f.group(1)) >= len(fence) and not line.strip(" `~"):
+                          fence = None
+                      continue
+                  if f:
+                      fence = f.group(1)
+                      continue
+                  m = re.match(r"^[-*] \[([ xX])\] \*\*([GHA][0-3])\*\*", line)
+                  if m:
+                      ticks[m.group(2)] = m.group(1) != " "
+              g = [k for k in ("G0", "G1", "G2", "G3") if ticks.get(k)]
+              if len(g) != 1:
+                  return None
+              h = None
+              for k in ("H0", "H1", "H2", "H3"):
+                  if not ticks.get(k):
+                      break
+                  h = k
+              a = "A0"
+              for k in ("A1", "A2", "A3"):
+                  if ticks.get(k):
+                      a = k
+              return g[0], h, a
+
           gen, hum, air = Counter(), Counter(), Counter()
-          legacy = 0
+          legacy = boxes = 0
           for sha, msg in entries:
+              levels = ticked_levels(msg)
+              if levels:
+                  g, h, a = levels
+                  boxes += 1
+                  gen[g] += 1
+                  hum[h or "unknown"] += 1
+                  air[a] += 1
+                  continue
               msg = trailer_block(msg)
               g = trailer(msg, "AI-Generation", "G[0-3]")
               if not g:
@@ -127,7 +170,10 @@ jobs:
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as s:
               s.write(f"### AI declarations\n\n{declared} of {len(entries)} commits on the default branch are declared")
-              s.write(f" ({legacy} with the old V0-V3 trailers, mapped conservatively).\n\n" if legacy else ".\n\n")
+              notes = [f"{boxes} from the ticked questions of merged PRs"] if boxes else []
+              if legacy:
+                  notes.append(f"{legacy} with the old V0-V3 trailers, mapped conservatively")
+              s.write(f" ({'; '.join(notes)}).\n\n" if notes else ".\n\n")
               s.write("| Level | Commits |\n|---|---|\n")
               for counts in (gen, hum, air):
                   for k, n in sorted(counts.items()):

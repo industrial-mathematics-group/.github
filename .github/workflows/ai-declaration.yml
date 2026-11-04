@@ -1,16 +1,18 @@
-# Reusable workflow: validates the AI declaration of a pull request and sets labels.
+# Reusable workflow: derives the AI declaration of a pull request from the ticked questions
+# of the PR template, validates it and sets labels.
 # Called from each repository (see workflow-templates/ai-declaration.yml).
 #
 # Rules (see CONTRIBUTING.md, "AI-assisted contributions"):
-#   AI-Generation: G0-G3         always
-#   Human-Review: H0-H3          always; must match the ticked H questions of the template
-#   AI-Review: A0-A3             always; must match the ticked A questions of the template
-#   Assisted-by: ...             required for G1-G3, not allowed for G0
-#   AI-Reviewed-by: ...          required for A1-A3, not allowed for A0
-#   Reviewed-by: ...             always (the responsible human)
+#   G0-G3     exactly one ticked
+#   H0-H3     at least H0; the levels build on each other
+#   A1-A3     the highest ticked one counts, none ticked is A0
+#   models    at least one for G1-G3 (a listed family or "Other: <name>"), none for G0
+#   A3        names the reviewing model after "Model:"
+#   Reviewed-by is the PR author, or the "Responsible person: @login" line for PRs opened by bots.
 #   G1-G3 need at least A1; G0 can't be A1 (no generating session to check itself).
 #   A [policy] table in the repository's AIDECL.toml can require more.
-#   The block must be the last paragraph of the PR description (it becomes git trailers on squash merge).
+#   The declaration travels into git through the merge commit, whose message is the PR
+#   title and description (see SETUP.md); the "AI badge" workflow reads it from there.
 #
 # Security: runs on pull_request_target so it can label PRs from forks. It only reads the PR
 # description and the AIDECL.toml of the BASE branch; it never checks out or runs code from the PR.
@@ -80,153 +82,174 @@ jobs:
           POLICY: ${{ steps.policy.outputs.json }}
         with:
           script: |
-            const body = (context.payload.pull_request.body || '').replace(/\r\n?/g, '\n');
-            const policy = JSON.parse(process.env.POLICY || '{}');
-            const errors = [];
+            // Derives the AI declaration of a PR from the ticked questions of the template.
+            // Returns { errors, warnings, g, h, a, assistedBy, aiReviewedBy, reviewedBy }.
+            function declare(body, author, policy) {
+              body = (body || '').replace(/\r\n?/g, '\n');
+              const errors = [], warnings = [];
 
-            // ---------- levels and ordering ----------
-            const LEVELS = {
-              'AI-Generation': ['G0', 'G1', 'G2', 'G3'],
-              'Human-Review': ['H0', 'H1', 'H2', 'H3'],
-              'AI-Review': ['A0', 'A1', 'A2', 'A3'],
-            };
-            const rank = (level) => {
-              for (const list of Object.values(LEVELS)) { const i = list.indexOf(level); if (i >= 0) return i; }
-              return -1;
-            };
+              const LEVELS = { G: ['G0', 'G1', 'G2', 'G3'], H: ['H0', 'H1', 'H2', 'H3'], A: ['A0', 'A1', 'A2', 'A3'] };
+              const rank = (level) => LEVELS[level[0]].indexOf(level);
+              // The model questions of the template: label in the template -> name in the declaration.
+              const MODELS = {
+                'Claude Fable': 'Claude Fable (Anthropic)',
+                'Claude Opus': 'Claude Opus (Anthropic)',
+                'Claude Sonnet': 'Claude Sonnet (Anthropic)',
+                'GPT Astra': 'GPT Astra (OpenAI)',
+                'GPT Sol': 'GPT Sol (OpenAI)',
+                'GPT Terra': 'GPT Terra (OpenAI)',
+              };
 
-            // ---------- declaration block (last paragraph) ----------
-            const KEYS = ['AI-Generation', 'Human-Review', 'AI-Review', 'Assisted-by', 'AI-Reviewed-by', 'Reviewed-by'];
-            const LEGACY = ['AI-Verification', 'Verified-by', 'Tested-by'];
-            const STANDARD = ['signed-off-by', 'co-authored-by'];   // allowed in the block, ignored here
-            const paragraphs = body.replace(/\s+$/, '').split(/\n[ \t]*\n/);
-            const last = paragraphs[paragraphs.length - 1] || '';
-            const values = {};
-            for (const raw of last.split('\n').filter(l => l.trim())) {
-              if (/^[ \t]/.test(raw)) {
-                errors.push(`Declaration lines must start at the beginning of the line (git would join "${raw.trim()}" to the previous line).`);
-                continue;
+              // ---------- what is visible ----------
+              // Only what is visible in the rendered PR counts: HTML comments and fenced code
+              // blocks are removed, and only top-level (not indented) checkboxes are read.
+              const visible = [];
+              let fence = null, inComment = false;
+              for (const line of body.split('\n')) {
+                if (fence) {
+                  const f = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+                  if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+                  continue;
+                }
+                if (inComment) {
+                  if (line.includes('-->')) inComment = false;
+                  continue;
+                }
+                const f = line.match(/^ {0,3}(`{3,}|~{3,})/);
+                if (f) { fence = f[1]; continue; }
+                // comments outside inline code; an unclosed one hides everything up to its end
+                let rest = line.replace(/`[^`]*`/g, '').replace(/<!--[\s\S]*?-->/g, '');
+                const open = rest.indexOf('<!--');
+                if (open >= 0) { inComment = true; rest = rest.slice(0, open); }
+                visible.push(rest);
               }
-              const line = raw.trim();
-              const m = line.match(/^([A-Za-z-]+):(.*)$/);
-              if (m && STANDARD.includes(m[1].toLowerCase())) continue;
-              const name = m ? m[1].toLowerCase() : null;
-              if (m && LEGACY.some(k => k.toLowerCase() === name)) {
-                errors.push(`"${m[1]}:" belongs to the old V0-V3 levels. Use Human-Review / AI-Review / Reviewed-by / AI-Reviewed-by instead.`);
-                continue;
-              }
-              const key = m && KEYS.find(k => k.toLowerCase() === name);
-              if (!key) {
-                errors.push(`The last paragraph of the description must contain only the declaration lines, but found: "${line}". Keep the declaration block at the very end.`);
-                continue;
-              }
-              const value = m[2].trim();
-              if (value === '') { errors.push(`"${key}:" is empty. Fill it in or delete the line.`); continue; }
-              (values[key] ||= []).push(value);
-            }
-            const one = (key) => {
-              const v = values[key] || [];
-              if (key === 'AI-Review' && v.includes('A-')) {
-                errors.push('"AI-Review: A-" is from the previous scale: no AI review is A0 now (see CONTRIBUTING.md).');
-                return null;
-              }
-              if (v.length !== 1 || !LEVELS[key].includes(v[0])) {
-                errors.push(`Expected exactly one "${key}: ${LEVELS[key].join(', ')}" line.`);
-                return null;
-              }
-              return v[0];
-            };
-            const g = one('AI-Generation'), h = one('Human-Review'), a = one('AI-Review');
-            const has = (key) => (values[key] || []).length > 0;
 
-            // ---------- the ticked questions ----------
-            // Only what is visible in the rendered PR counts: HTML comments and fenced code
-            // blocks are removed, and only top-level (not indented) checkboxes are read.
-            const visible = [];
-            let fence = null, inComment = false;
-            for (const line of body.split('\n')) {
-              if (fence) {
-                const f = line.match(/^ {0,3}(`{3,}|~{3,})\s*$/);
-                if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
-                continue;
+              // The trailer block of the previous template is no longer read; a leftover one would
+              // look like a declaration but count for nothing.
+              const OLD = /^(AI-Generation|Human-Review|AI-Review|Assisted-by|AI-Reviewed-by|Reviewed-by|AI-Verification|Verified-by|Tested-by):/i;
+              const old = visible.map(l => l.match(OLD)).find(Boolean);
+              if (old) errors.push(`The declaration lines at the end ("${old[1]}: ...") are no longer used: the check reads the ticked questions only. Delete those lines.`);
+
+              // ---------- the questions ----------
+              const ticks = {}, text = {}, models = {};
+              for (const line of visible) {
+                const m = line.match(/^[-*] \[( |x|X)\] \*\*([^*]+)\*\*(.*)$/);
+                if (!m) continue;
+                const ticked = m[1] !== ' ', label = m[2].trim(), rest = m[3];
+                if (/^[GHA][0-3]$/.test(label)) {
+                  if (label in ticks) errors.push(`The question ${label} appears more than once; keep the template's questions as they are.`);
+                  ticks[label] = ticked;
+                  const t = rest.match(/\bModel(?:, if not one of the above)?:(.*)$/);
+                  if (t) text[label] = t[1].trim();
+                } else if (label in MODELS) {
+                  models[label] = ticked;
+                } else if (/^Other:?$/.test(label)) {
+                  const name = rest.replace(/^:/, '').trim();
+                  if (ticked && !name) errors.push('You ticked "Other" under the AI models; write the tool and model after it, e.g. "Gemini 3 Pro (Google)".');
+                  else if (!ticked && name) warnings.push(`"Other: ${name}" is not ticked, so it isn't declared. Tick it if this model wrote part of the change.`);
+                  if (ticked && name) models[`Other: ${name}`] = name;
+                }
               }
-              if (inComment) {
-                if (line.includes('-->')) inComment = false;
-                continue;
+              if ('A0' in ticks) errors.push('The AI review questions of the PR template have changed (there is no A0 question any more). Copy the "AI declaration" section from the current template and tick what applies.');
+              const missing = (keys) => {
+                const m = keys.filter(k => !(k in ticks));
+                if (m.length) errors.push(`The questions ${m.join(', ')} from the PR template are missing. Copy the "AI declaration" section back from the template and tick what applies.`);
+                return m.length > 0;
+              };
+
+              // G: exactly one
+              let g = null;
+              if (!missing(LEVELS.G)) {
+                const ticked = LEVELS.G.filter(k => ticks[k]);
+                if (ticked.length === 1) g = ticked[0];
+                else if (!ticked.length) errors.push('Tick one generation level, G0-G3.');
+                else errors.push(`Tick exactly one generation level (ticked: ${ticked.join(', ')}); choose the highest that applies to any substantial part.`);
               }
-              const f = line.match(/^ {0,3}(`{3,}|~{3,})/);
-              if (f) { fence = f[1]; continue; }
-              // comments outside inline code; an unclosed one hides everything up to its end
-              let rest = line.replace(/`[^`]*`/g, '').replace(/<!--[\s\S]*?-->/g, '');
-              const open = rest.indexOf('<!--');
-              if (open >= 0) { inComment = true; rest = rest.slice(0, open); }
-              visible.push(rest);
-            }
-            const ticks = {};
-            for (const line of visible) {
-              const m = line.match(/^[-*] \[( |x|X)\] \*\*([HA][0-3])\*\*/);
-              if (!m) continue;
-              if (m[2] in ticks) errors.push(`The question ${m[2]} appears more than once; keep the template's questions as they are.`);
-              ticks[m[2]] = m[1] !== ' ';
-            }
-            if ('A0' in ticks) errors.push('The AI review questions of the PR template have changed (there is no A0 question any more). Copy the "Review" section from the current template and tick what applies.');
-            // Human review levels build on each other. AI review levels don't have to: a review by
-            // a new session (A2) or a different model (A3) counts even if the generating session
-            // didn't check itself. The level is the highest ticked one.
-            const derive = (keys, none, cumulative) => {
-              const missing = keys.filter(k => !(k in ticks));
-              if (missing.length) {
-                errors.push(`The review questions ${missing.join(', ')} from the PR template are missing. Copy the "Review" section back from the template and tick what applies.`);
-                return undefined;
+
+              // H: the levels build on each other
+              let h = null;
+              if (!missing(LEVELS.H)) {
+                for (const k of LEVELS.H) { if (ticks[k]) h = k; else break; }
+                const gap = LEVELS.H.find((k, i) => ticks[k] && LEVELS.H.slice(0, i).some(j => !ticks[j]));
+                if (gap) { errors.push(`You ticked ${gap} but not every level below it; the human review levels build on each other.`); h = null; }
+                else if (!h) errors.push('Tick at least H0: a human review is required for every change.');
               }
-              let level = none;
-              if (cumulative) {
-                for (const k of keys) { if (ticks[k]) level = k; else break; }
-                const gap = keys.find((k, i) => ticks[k] && keys.slice(0, i).some(j => !ticks[j]));
-                if (gap) errors.push(`You ticked ${gap} but not every level below it; the human review levels build on each other.`);
+
+              // A: the highest ticked one counts. A review by a new session (A2) or a different model (A3)
+              // counts even if the generating session didn't check itself.
+              let a = null;
+              const aKeys = ['A1', 'A2', 'A3'];
+              if (!missing(aKeys)) {
+                a = 'A0';
+                for (const k of aKeys) if (ticks[k]) a = k;
+                if (g === 'G0' && ticks.A1) {
+                  errors.push('A1 (self-check) is for AI-written changes; for a human-written change (G0) any AI review is A2 or A3. Untick A1.');
+                  a = null;
+                }
+              }
+
+              // ---------- names ----------
+              const assistedBy = Object.entries(models).filter(([, v]) => v).map(([k, v]) => k in MODELS ? MODELS[k] : v);
+              if (g && g !== 'G0' && !assistedBy.length) errors.push(`${g} needs the AI model(s) that wrote parts of the change: tick them, or "Other" with the name.`);
+              if (g === 'G0' && assistedBy.length) errors.push('G0 means no AI was used, so untick the AI models (or choose G1-G3).');
+
+              const aiReviewedBy = [];
+              const writers = assistedBy.length ? assistedBy.join(', ') : null;
+              if (a === 'A1' && writers) aiReviewedBy.push(`${writers}, self-check by the generating session`);
+              if (a === 'A2') {
+                const by = text.A2 || writers;
+                if (!by) errors.push('A2: name the reviewing model after "Model, if not one of the above:".');
+                else aiReviewedBy.push(`${by}, new session`);
+              }
+              if (a === 'A3') {
+                if (!text.A3) errors.push('A3: name the reviewing model after "Model:" (a different model from the one that wrote the change).');
+                else aiReviewedBy.push(`${text.A3}, extensive review or benchmark`);
+              }
+              for (const k of ['A2', 'A3']) {
+                if (text[k] && !ticks[k]) warnings.push(`A model is named after ${k}, but ${k} isn't ticked, so it isn't declared.`);
+              }
+
+              // ---------- the responsible human ----------
+              let reviewedBy = null;
+              const resp = visible.map(l => l.match(/^[-*] \[( |x|X)\] I take responsibility/)).find(Boolean);
+              if (!resp || resp[1] === ' ') errors.push('Please tick "I take responsibility for this change" (from the PR template).');
+              const named = visible.map(l => l.match(/^\s*Responsible person:\s*@?([A-Za-z0-9-]+)\s*$/i)).find(Boolean);
+              if (author.type === 'Bot') {
+                if (named) reviewedBy = named[1];
+                else errors.push(`This PR was opened by the bot account ${author.login}, which can't take responsibility. Add a line "Responsible person: @login" naming the human who does.`);
               } else {
-                for (const k of keys) if (ticks[k]) level = k;
+                reviewedBy = author.login;
+                if (named && named[1].toLowerCase() !== author.login.toLowerCase()) {
+                  warnings.push(`"Responsible person" is only read for PRs opened by bots; the responsible human is the author, ${author.login}.`);
+                }
               }
-              return level;
-            };
-            const hTicked = derive(['H0', 'H1', 'H2', 'H3'], null, true);
-            let aTicked;
-            if (g === 'G0' && ticks.A1) {
-              errors.push('A1 (self-check) is for AI-written changes; for a human-written change (G0) any AI review is A2 or A3. Untick A1.');
-            } else {
-              aTicked = derive(['A1', 'A2', 'A3'], 'A0', false);
-            }
-            if (hTicked === null) errors.push('Tick at least H0: a human review is required for every change.');
-            if (h && hTicked && h !== hTicked) errors.push(`Your ticked questions correspond to ${hTicked}, but the block says Human-Review: ${h}.`);
-            if (a && aTicked !== undefined && a !== aTicked) errors.push(`Your ticked questions correspond to ${aTicked}, but the block says AI-Review: ${a}.`);
-            const resp = visible.map(l => l.match(/^[-*] \[( |x|X)\] I take responsibility/)).find(Boolean);
-            if (!resp || resp[1] === ' ') errors.push('Please tick "I take responsibility for this change" (from the PR template).');
 
-            // ---------- completeness rules ----------
-            if (g && g !== 'G0' && !has('Assisted-by')) errors.push(`${g} needs at least one "Assisted-by:" line naming the tool and model.`);
-            if (g === 'G0' && has('Assisted-by')) errors.push('G0 means no AI was used, so "Assisted-by:" must be removed (or choose G1-G3).');
-            if (!has('Reviewed-by')) errors.push('A "Reviewed-by:" line naming the responsible human is required.');
-            if (a && a !== 'A0' && !has('AI-Reviewed-by')) errors.push(`${a} needs an "AI-Reviewed-by:" line naming the reviewing model and session.`);
-            if (a === 'A0' && has('AI-Reviewed-by')) errors.push('A0 means no AI review, so "AI-Reviewed-by:" must be removed.');
-            if (g === 'G0' && a === 'A1' && !ticks.A1) errors.push('G0 can\'t be A1: a human-written change has no generating AI session to check itself. Any AI review of it is A2 or A3.');
+              // ---------- minimum levels ----------
+              if (g && h && a) {
+                const req = { ...(policy['*'] || {}), ...(policy[g] || {}) };
+                let minA = req.ai;
+                if (g !== 'G0' && (!minA || rank(minA) < rank('A1'))) minA = 'A1';
+                if (g === 'G0' && minA === 'A1') minA = 'A2';   // no self-check for human-written content
+                if (req.human && rank(h) < rank(req.human)) errors.push(`${g} requires at least ${req.human} in this repository (ticked ${h}).`);
+                if (minA && rank(a) < rank(minA)) errors.push(g !== 'G0' && minA === 'A1'
+                  ? `AI-written content (${g}) must at least be self-checked: tick A1 or higher (ticked ${a}).`
+                  : `${g} requires at least ${minA} in this repository (ticked ${a}).`);
+              }
 
-            // ---------- minimum levels ----------
-            if (g && h && a) {
-              const req = { ...(policy['*'] || {}), ...(policy[g] || {}) };
-              let minA = req.ai;
-              if (g !== 'G0' && (!minA || rank(minA) < rank('A1'))) minA = 'A1';
-              if (g === 'G0' && minA === 'A1') minA = 'A2';   // no self-check for human-written content
-              if (req.human && rank(h) < rank(req.human)) errors.push(`${g} requires at least ${req.human} in this repository (declared ${h}).`);
-              if (minA && rank(a) < rank(minA)) errors.push(g !== 'G0' && minA === 'A1'
-                ? `AI-written content (${g}) must at least be self-checked: AI-Review A1 or higher (declared ${a}).`
-                : `${g} requires at least ${minA} in this repository (declared ${a}).`);
+              return { errors, warnings, g, h, a, assistedBy, aiReviewedBy, reviewedBy };
             }
+
+            const pr = context.payload.pull_request;
+            const { errors, warnings, g, h, a, assistedBy, aiReviewedBy, reviewedBy } =
+              declare(pr.body, pr.user, JSON.parse(process.env.POLICY || '{}'));
+            for (const w of warnings) core.warning(w);
 
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
             const isAiLabel = (name) => /^(ai:G[0-3]|human:H[0-3]|ai-review:A[-0-3]|verified:V[0-3])$/.test(name);
             const currentLabels = async () =>
               (await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number, per_page: 100 })).data.map(l => l.name);
+
 
             const summary = core.summary.addHeading('AI declaration', 3);
             if (errors.length) {
@@ -238,10 +261,20 @@ jobs:
               core.setFailed(errors.join('\n'));
               return;
             }
+            // The declaration derived from the ticks, in the form of the aidecl keys (e.g. for AIDECL.toml).
+            const declaration = [
+              `AI-Generation: ${g}`, `Human-Review: ${h}`, `AI-Review: ${a}`,
+              ...assistedBy.map(m => `Assisted-by: ${m}`),
+              ...aiReviewedBy.map(m => `AI-Reviewed-by: ${m}`),
+              `Reviewed-by: ${reviewedBy}`,
+            ].join('\n');
             await summary.addTable([
               [{ data: 'Generation', header: true }, { data: 'Human review', header: true }, { data: 'AI review', header: true }],
               [g, h, a],
-            ]).write();
+            ]).addCodeBlock(declaration);
+            if (warnings.length) summary.addList(warnings);
+            await summary.write();
+
 
             // ---------- labels ----------
             const info = {
