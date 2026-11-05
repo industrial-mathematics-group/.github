@@ -103,3 +103,15 @@ jobs:
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max-turns }}
             --allowedTools "Bash(aidecl:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(python3:*),Bash(npm ci),Bash(npm install),Bash(npm run:*),Bash(npx astro:*)"
+      - name: Show Claude result on failure
+        if: failure()
+        run: |
+          python3 - <<'EOF'
+          import json, pathlib
+          p = pathlib.Path.home() / "work/_temp/claude-execution-output.json"
+          for line in p.read_text().splitlines():
+              try: m = json.loads(line)
+              except Exception: continue
+              if m.get("type") == "result":
+                  print("RESULT:", m.get("result")); print("ERRORS:", m.get("errors"))
+          EOF
