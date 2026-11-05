@@ -1,0 +1,23 @@
+name: "Claude: ask for something else"
+description: Ask Claude to change files in this repository, explain something, or prepare a pull request.
+labels: ["claude-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe what you want, as you would to a colleague. Claude answers here; if files change, it pushes a
+        branch and posts a link to open the pull request. You can reply with `@claude ...` to continue.
+  - type: textarea
+    id: request
+    attributes:
+      label: What should Claude do?
+      placeholder: "Add a README section that explains how to reproduce Figure 3 from results/fig3/."
+    validations:
+      required: true
+  - type: checkboxes
+    id: go
+    attributes:
+      label: Start
+      options:
+        - label: "@claude please work on this"
+          required: true

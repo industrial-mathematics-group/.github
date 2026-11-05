@@ -1,0 +1,92 @@
+name: "Claude: declare AI use for files"
+description: Claude writes the AI declaration (AIDECL.toml) for files or folders in this repository. No TOML needed.
+title: "AI declaration: "
+labels: ["ai-declaration"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Answer in plain words; Claude turns your answers into `AIDECL.toml` entries, checks them with `aidecl lint`
+        and posts a link to open the pull request. The levels are explained in the
+        [AI policy](https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#ai-assisted-contributions).
+
+        The files must already be in this repository. New files? Upload them first (*Add file → Upload files*,
+        "Create a new branch"), then write `@claude` in that pull request instead, with the same information.
+
+        Issues in public repositories are public: don't describe unpublished results here.
+  - type: textarea
+    id: paths
+    attributes:
+      label: Which files or folders?
+      description: One per line, as they appear in the repository. A folder covers everything in it.
+      placeholder: |
+        results/convergence-study/
+        figures/fig3.pdf
+    validations:
+      required: true
+  - type: dropdown
+    id: generation
+    attributes:
+      label: How much of it did AI write?
+      description: If parts differ, pick the highest that applies to a substantial part, or explain below.
+      options:
+        - "G0: nothing, a human wrote it without AI"
+        - "G1: a human wrote it, AI suggested or edited parts"
+        - "G2: AI wrote substantial parts, a human directed the work and edited the result"
+        - "G3: an AI agent produced it largely end to end"
+    validations:
+      required: true
+  - type: input
+    id: models
+    attributes:
+      label: Which AI tools and models? (not for G0)
+      description: Tool and model, as precisely as you know it. Several are fine.
+      placeholder: "Claude Opus 5.5 (Anthropic); GitHub Copilot"
+  - type: dropdown
+    id: human
+    attributes:
+      label: How did a human check it?
+      description: Pick the highest level you completed; each includes the ones above it.
+      options:
+        - "H0: checked the result as a whole: it does what was asked and the output is plausible"
+        - "H1: ran it / reproduced the key results, and read the important parts"
+        - "H2: read every line, understood it, checked edge cases"
+        - "H3: independently validated: new tests, a reference solution or method, or a second person's review"
+    validations:
+      required: true
+  - type: dropdown
+    id: ai-review
+    attributes:
+      label: Did an AI review it?
+      options:
+        - "A0: no AI review"
+        - "A1: the AI that wrote it checked its own work (not for G0)"
+        - "A2: a new AI session, without the original conversation, reviewed it"
+        - "A3: a different model reviewed it extensively or benchmarked it"
+    validations:
+      required: true
+  - type: input
+    id: ai-reviewer
+    attributes:
+      label: Which model reviewed it, and how? (A1 to A3)
+      placeholder: "GPT Sol (OpenAI), benchmark against reference solutions"
+  - type: input
+    id: responsible
+    attributes:
+      label: Responsible person (your full name)
+      description: Recorded as Reviewed-by. You open and merge the pull request.
+      placeholder: Jane Doe
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else Claude should know?
+      description: Exceptions, files that differ from the rest, or what the files are.
+  - type: checkboxes
+    id: go
+    attributes:
+      label: Start
+      options:
+        - label: "@claude please prepare this declaration"
+          required: true
