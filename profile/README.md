@@ -5,11 +5,11 @@
 
 <!-- Badges: replace <ZENODO-COMMUNITY> with your community id -->
 [![Zenodo community](https://img.shields.io/badge/Zenodo-community-1682D4.svg)](https://zenodo.org/communities/img)
-[![Website](https://img.shields.io/badge/web-math.rptu.de-1B2238.svg)](https://math.rptu.de/ags/techno)
+[![Website](https://img.shields.io/badge/web-organization-1B2238.svg)](https://industrial-mathematics.org)
 
 </div>
 
-We are the **Industrial Mathematics Group** at RPTU Kaiserslautern-Landau. We develop models, numerical methods and open-source software for problems from science and industry, with a focus on partial differential equations.
+We are the **Industrial Mathematics Group** based in Kaiserslautern (Germany). We develop models, numerical methods and open-source software for problems from science and industry, with a focus on partial differential equations.
 
 ## Research
 
@@ -39,7 +39,7 @@ Questions, bug reports and contributions are welcome. Please open an issue in th
 
 ## Contact
 
-[Technomathematics Group, RPTU Kaiserslautern](https://math.rptu.de/ags/techno) · Gottlieb-Daimler-Straße, Building 48, 67663 Kaiserslautern, Germany
+[info\@industrial-mathematics.org](mailto:info\@industrial-mathematics.org)
 
 ---
 
