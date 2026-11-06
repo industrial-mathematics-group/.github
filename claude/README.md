@@ -28,7 +28,7 @@ Writing `@claude` anywhere in a comment starts Claude, so only use it when you m
    - your **human review** level (H0–H3) for Claude's change, i.e. how carefully you checked what Claude did, and
    - **I take responsibility for this change**.
 
-   The *AI declaration* check turns green once these are ticked.
+   The *PR-signoff* check turns green once these are ticked.
 6. Merge it (*Merge pull request*). That's it.
 
 Want something changed? Comment `@claude ...` in the pull request, e.g. `@claude also include figures/fig4.pdf`.

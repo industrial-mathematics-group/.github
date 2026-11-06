@@ -1,0 +1,109 @@
+# Reusable workflow: file-level AI declarations with aisignoff (SIGNOFF.toml / inline tags).
+# aisignoff was called aidecl up to 0.3.0; it still reads AIDECL.toml until a repository runs 'aisignoff migrate'.
+#   lint    every push and pull request: fails if a file has no valid declaration
+#   badges  pushes to the default branch: publishes aisignoff-generation.json,
+#           aisignoff-human-review.json and aisignoff-ai-review.json to the orphan branch "badges",
+#           plus copies under the old names aidecl-*.json so existing README badges keep working
+# Called from each repository (see workflow-templates/file-signoff.yml).
+name: File-signoff
+
+on:
+  workflow_call:
+    inputs:
+      aisignoff-ref:
+        description: Git ref (tag, branch or commit) of aisignoff to install
+        type: string
+        default: main
+      weight:
+        description: Badge weighting, "files" or "lines"
+        type: string
+        default: files
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install aisignoff
+        env:
+          REF: ${{ inputs.aisignoff-ref }}
+        # No package name in the requirement, so refs from before the rename (aidecl <= 0.3.0) still install.
+        run: |
+          pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
+          if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
+      - name: Check declarations
+        run: |
+          { echo '```'; "$TOOL" report || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          "$TOOL" lint
+
+  badges:
+    # Also runs when lint fails, so the badge shows the undeclared share; skipped when cancelled.
+    if: >-
+      !cancelled() && github.event_name != 'pull_request' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: aidecl-badges-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install aisignoff
+        env:
+          REF: ${{ inputs.aisignoff-ref }}
+        # No package name in the requirement, so refs from before the rename (aidecl <= 0.3.0) still install.
+        run: |
+          pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
+          if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
+      - name: Build badges
+        env:
+          WEIGHT: ${{ inputs.weight }}
+        run: |
+          "$TOOL" badge --out "$RUNNER_TEMP/aidecl-badges" --weight "$WEIGHT"
+          # publish under both names: aisignoff-*.json (new) and aidecl-*.json (README badges from before the rename)
+          cd "$RUNNER_TEMP/aidecl-badges"
+          for axis in generation human-review ai-review; do
+            if [ -f "aisignoff-$axis.json" ]; then cp "aisignoff-$axis.json" "aidecl-$axis.json"
+            else cp "aidecl-$axis.json" "aisignoff-$axis.json"; fi
+          done
+      - name: Publish to the badges branch
+        env:
+          FILES: aisignoff-generation.json aisignoff-human-review.json aisignoff-ai-review.json aidecl-generation.json aidecl-human-review.json aidecl-ai-review.json
+          SRC: ${{ runner.temp }}/aidecl-badges
+          MESSAGE: Update AI file declaration badges
+        run: |
+          # Other workflows (e.g. "Signoff-Badges") write other files to the same branch,
+          # so a push can be rejected: start again from the newest branch tip and retry.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -euo pipefail
+          WT="$RUNNER_TEMP/badges-worktree"
+          for attempt in 1 2 3 4 5; do
+            cd "$GITHUB_WORKSPACE"
+            rm -rf "$WT"; git worktree prune
+            if git ls-remote --exit-code --heads origin badges >/dev/null; then
+              git fetch -q origin badges
+              git worktree add -q --detach "$WT" FETCH_HEAD
+            else
+              # unique local name; only the remote branch is called "badges"
+              git worktree add -q --orphan -b "badges-new-$GITHUB_RUN_ID-$attempt" "$WT"
+            fi
+            for f in $FILES; do cp "$SRC/$f" "$WT/"; done
+            cd "$WT"
+            git add $FILES
+            if git diff --cached --quiet; then echo "Badges unchanged."; exit 0; fi
+            git commit -q -m "$MESSAGE"
+            if git push -q origin HEAD:refs/heads/badges; then echo "Badges published."; exit 0; fi
+            echo "Push rejected (attempt $attempt), retrying ..."; sleep $((attempt * 3))
+          done
+          echo "Could not publish the badges." >&2; exit 1

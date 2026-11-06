@@ -1,0 +1,5 @@
+{
+  "name": "PR-signoff",
+  "description": "Checks the AI declaration (G0–G3, H0–H3, A0–A3) ticked in pull requests into the default branch and labels them.",
+  "iconName": "octicon shield-check"
+}

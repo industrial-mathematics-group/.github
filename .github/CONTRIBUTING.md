@@ -136,7 +136,7 @@ The same levels, rules and policy apply. Text files can carry the declaration in
 
 Prefer not to use the command line? In repositories with the @claude assistant, the issue form **Claude: declare AI use for files** writes the declaration for you; see [Asking Claude on GitHub](../claude/README.md).
 
-If a repository has a `SIGNOFF.toml`, **update it in the same PR** whenever your change alters how a file was created or reviewed. The *AI file declarations* check fails if any file is left without a valid declaration.
+If a repository has a `SIGNOFF.toml`, **update it in the same PR** whenever your change alters how a file was created or reviewed. The *File-signoff* check fails if any file is left without a valid declaration.
 
 **From earlier versions of this policy.** The previous version had the AI review levels A-, A0–A3; the scale moved up by one:
 

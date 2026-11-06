@@ -1,0 +1,5 @@
+{
+  "name": "Signoff-Badges",
+  "description": "Summarises the AI declarations of merged pull requests on the default branch and publishes README badges.",
+  "iconName": "octicon graph"
+}

@@ -7,9 +7,10 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `profile/README.md` | Organisation front page on GitHub |
 | `.github/CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` | Default community files for every repository without its own |
 | `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/` | Default PR and issue templates |
-| `.github/workflows/ai-declaration.yml` | Reusable workflow: checks the AI declaration, sets labels |
-| `.github/workflows/ai-badge.yml` | Reusable workflow: publishes the README badges |
-| `.github/workflows/aidecl.yml` | Reusable workflow: file-level declarations with aisignoff (lint + badges) |
+| `.github/workflows/pr-signoff.yml` | Reusable workflow *PR-signoff*: checks the AI declaration of a PR, sets labels |
+| `.github/workflows/signoff-badges.yml` | Reusable workflow *Signoff-Badges*: publishes the README badges of the PR declarations |
+| `.github/workflows/file-signoff.yml` | Reusable workflow *File-signoff*: file-level declarations with aisignoff (lint + badges) |
+| `.github/workflows/ai-declaration.yml`, `ai-badge.yml`, `aidecl.yml` | Deprecated wrappers under the old names, see [Renamed workflows](#renamed-workflows) |
 | `.github/workflows/claude.yml`, `claude/` | The @claude assistant (see [below](#the-claude-assistant)) |
 | `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
@@ -24,13 +25,13 @@ This repository must be **public** for the defaults and the reusable workflows t
 
 ## 2. Per repository
 
-1. **Add the workflows.** Go to *Actions → New workflow* and pick **AI declaration check** and **AI declaration badges** (and **AI file declarations** for repositories that declare files with aisignoff) from the "By Industrial Mathematics Group" section. Or copy them by hand into `.github/workflows/` and replace `$default-branch` with `main`.
+1. **Add the workflows.** Go to *Actions → New workflow* and pick **PR-signoff** and **Signoff-Badges** (and **File-signoff** for repositories that declare files with aisignoff) from the "By Industrial Mathematics Group" section. Or copy them by hand into `.github/workflows/` and replace `$default-branch` with `main`.
 2. **Merge settings** (*Settings → General → Pull Requests*):
    - allow **merge commits** only, so the full history of each PR is kept,
    - default merge commit message: **"Pull request title and description"**. This puts the ticked declaration questions into the merge commit on `main`, where the badges read them. Merge on GitHub, not locally: a local merge doesn't carry the description.
 3. **Protect `main`** (*Settings → Rules → Rulesets*, or *Branches → Branch protection*):
    - require a pull request before merging,
-   - require the status check **`declaration / check`**.
+   - require the status check **`pr-signoff / check`**.
 
    You don't need to require approvals; as the only maintainer you couldn't approve your own PRs.
 4. **Badges in the README** (replace `<Package>`):
@@ -42,14 +43,14 @@ This repository must be **public** for the defaults and the reusable workflows t
 [![AI review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<Package>.jl/badges/ai-review.json)](https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#a-ai-review)
 ```
 
-The three dynamic badges show "no declarations yet" until the first declared PR is merged. Run the *AI badge* workflow once by hand (*Actions → AI badge → Run workflow*) to create the `badges` branch.
+The three dynamic badges show "no declarations yet" until the first declared PR is merged. Run the *Signoff-Badges* workflow once by hand (*Actions → Signoff-Badges → Run workflow*) to create the `badges` branch.
 
 ## Optional: file-level declarations (aisignoff)
 
 For repositories with results, data or papers, or with casual single-commit uploads:
 
-1. **Once for the organisation:** create the public repository `industrial-mathematics-group/aisignoff` from the aisignoff source and push it. The workflow installs the tool from there; tag a release (e.g. `v0.3.0`) if you want repositories to pin it.
-2. **Per repository:** add `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) and the **AI file declarations** workflow (*Actions → New workflow*). It runs `aisignoff lint` on every push and PR, and on pushes to `main` it publishes the badges:
+1. **Once for the organisation:** create the public repository `industrial-mathematics-group/aisignoff` from the aisignoff source and push it. The workflow installs the tool from there; releases are also on PyPI (`pip install aisignoff`); repositories can pin a release tag (e.g. `v0.4.0`).
+2. **Per repository:** add `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) and the **File-signoff** workflow (*Actions → New workflow*). It runs `aisignoff lint` on every push and PR, and on pushes to `main` it publishes the badges:
 
 ```markdown
 [![AI generation (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-generation.json)](https://github.com/industrial-mathematics-group/aisignoff)
@@ -57,7 +58,7 @@ For repositories with results, data or papers, or with casual single-commit uplo
 [![AI review (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-ai-review.json)](https://github.com/industrial-mathematics-group/aisignoff)
 ```
 
-3. Optionally require the status check **`aidecl / lint`** on `main`.
+3. Optionally require the status check **`file-signoff / lint`** on `main`.
 
 Both systems can run side by side: the PR check and its badges describe changes, aisignoff describes files. They use different badge files on the same `badges` branch.
 
@@ -120,7 +121,7 @@ In the caller workflow (`with:`):
 | `model` / `model-name` | `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Anthropic)` | A stronger model, e.g. `claude-opus-5-5` / `Claude Opus 5.5 (Anthropic)`. Change both together: `model-name` is what Claude writes into declarations. |
 | `node-version` | none | `"22"` for repositories that build with Node (the website) |
 | `max-turns` | `40` | Cost guard per run |
-| `aidecl-ref`, `guide-ref` | `main` | Pin aisignoff or the guide to a tag |
+| `aidecl-ref`, `guide-ref` | `main` | Pin aisignoff (input name from before the rename) or the guide to a tag |
 
 Organisation-wide behaviour (levels, wording, PR declaration) is changed in `claude/ORG-GUIDE.md`; every
 repository picks it up on its next run.
@@ -136,7 +137,7 @@ reusable workflow: checkout ─► pip install aisignoff ─► ORG-GUIDE.md as 
 Claude (as the Claude app): reads issue + repo CLAUDE.md, runs aisignoff annotate / lint or edits files,
 pushes branch claude/issue-<n>-…, posts "Create PR" link with the PR template pre-ticked (G3, model, A1)
    ▼
-person opens PR ─► ticks H0–H3 and "I take responsibility" ─► declaration / check green ─► merge
+person opens PR ─► ticks H0–H3 and "I take responsibility" ─► pr-signoff / check green ─► merge
 ```
 
 ### Costs and safety
@@ -173,6 +174,14 @@ The PR template no longer ends in trailer lines (`AI-Generation:`, `Reviewed-by:
 3. **Open pull requests** fail the check until their description has the new "AI declaration" section and no trailer lines.
 4. **History:** commits declared with trailers keep counting in the badges; nothing needs to be rewritten.
 
+## Renamed workflows
+
+The workflows were renamed to match aisignoff: *AI declaration* is now **PR-signoff**, *AI file declarations* is now **File-signoff**, and *AI badge* is now **Signoff-Badges**. The old reusable workflows (`ai-declaration.yml`, `aidecl.yml`, `ai-badge.yml`) still work: they call the new ones. To switch a repository:
+
+1. **Replace the caller workflows** in its `.github/workflows/`: delete `ai-declaration.yml`, `aidecl.yml` and `ai-badge.yml`, then add **PR-signoff**, **File-signoff** (if it declares files) and **Signoff-Badges** from *Actions → New workflow*. If the old callers set `with:` options, carry them over; `aidecl-ref` is now `aisignoff-ref`.
+2. **Required status checks:** `declaration / check` becomes **`pr-signoff / check`**, and `aidecl / lint` becomes **`file-signoff / lint`**. Update the ruleset or branch protection in the same go. Through the old wrappers the checks are called `declaration / check / check` and `aidecl / aidecl / lint`, so a required check with the old name stays pending until the caller is replaced.
+3. **Badges** keep their file names, so the README doesn't change.
+
 ## Updating from aidecl to aisignoff
 
 aidecl was renamed to aisignoff (0.4.0, also on PyPI: `pip install aisignoff`), and `AIDECL.toml` to `SIGNOFF.toml`. Keys, levels and inline tags are unchanged.
@@ -192,7 +201,7 @@ The AI review scale moved up by one (A- → A0, A0 → A1, A1 → A2; A3 now mea
    ```yaml
    jobs:
      badge:
-       uses: industrial-mathematics-group/.github/.github/workflows/ai-badge.yml@main
+       uses: industrial-mathematics-group/.github/.github/workflows/signoff-badges.yml@main
        with:
          previous-ai-scale-until: 0123abc   # this commit and all before it use A-, A0-A3
    ```
@@ -211,12 +220,12 @@ The AI review scale moved up by one (A- → A0, A0 → A1, A1 → A2; A3 now mea
 ```
 feature branch ──(anything goes)──► PR into main
                                      │  template asks for the declaration
-                                     │  "declaration / check" validates it, sets ai:G* / human:H* / ai-review:A* labels
+                                     │  "pr-signoff / check" validates it, sets ai:G* / human:H* / ai-review:A* labels
                                      ▼
                               merge commit ──► "title and description" on main, with the ticks
                                                  │
                                                  ▼
-                                    "AI badge" workflow ──► badges branch ──► README badges
+                              "Signoff-Badges" workflow ──► badges branch ──► README badges
 ```
 
 - The declaration is only enforced for PRs into `main`. Commits on other branches are not checked. Draft PRs are checked too, so problems show up early, but only the state at merge counts.
