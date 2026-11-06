@@ -28,21 +28,25 @@ Follow it; this guide only says how to apply it.
 
 Rules: G1–G3 need `Assisted-by` and at least A1. G0 has no `Assisted-by` and can't be A1 (any AI review of human
 work is A2 or A3). A1–A3 need `AI-Reviewed-by`. Every file needs `Reviewed-by`, the responsible human.
-A repository's `AIDECL.toml` may contain a `[policy]` table that requires higher minimums.
+A repository's `SIGNOFF.toml` may contain a `[policy]` table that requires higher minimums.
 
-## Declaring files (AIDECL.toml)
+## Declaring files (SIGNOFF.toml)
 
-`aidecl` is installed. **Never edit `AIDECL.toml` by hand; use the tool**, which refuses invalid or
-below-policy declarations and leaves the file unchanged:
+`aisignoff` is installed. **Never edit `SIGNOFF.toml` by hand; use the tool**, which refuses invalid or
+below-policy declarations and leaves the file unchanged. A repository that hasn't been migrated yet has
+`AIDECL.toml` instead, the old name of `SIGNOFF.toml`: aisignoff reads and writes it the same way, so work with
+it as it is and don't rename it unless you're asked to.
+
+Declare with these commands:
 
 ```bash
-aidecl init -g G0 -H H2 -a A0 --reviewed-by "Jane Doe"     # only if the repository has no AIDECL.toml yet
-aidecl annotate results/ -g G2 -H H1 -a A1 \
+aisignoff init -g G0 -H H2 -a A0 --reviewed-by "Jane Doe"     # only if the repository has no SIGNOFF.toml yet
+aisignoff annotate results/ -g G2 -H H1 -a A1 \
     --assisted-by "Claude Opus 5.5 (Anthropic)" \
     --ai-reviewed-by "Claude Opus 5.5 (Anthropic), self-check by the generating session" \
     --reviewed-by "Jane Doe"
-aidecl lint
-aidecl report --files       # to show the person what is declared now
+aisignoff lint
+aisignoff report --files       # to show the person what is declared now
 ```
 
 - Folders become `folder/**`; quote globs. Paths must exist in the repository. If a path doesn't exist, ask.
@@ -53,21 +57,21 @@ aidecl report --files       # to show the person what is declared now
 - `Reviewed-by` is the full name the person gave, never yours and never a GitHub bot.
 - If a file's declaration in the answers is impossible (e.g. G2 without a model, G0 with A1), explain the rule
   in one sentence and ask which they meant.
-- If there is no `AIDECL.toml` yet: ask what the default for the rest of the repository should be before you run
-  `aidecl init`, unless the person already said so.
-- Run `aidecl lint` before you finish. If it fails because of files you weren't asked about, don't fix those;
+- If there is no `SIGNOFF.toml` yet: ask what the default for the rest of the repository should be before you run
+  `aisignoff init`, unless the person already said so.
+- Run `aisignoff lint` before you finish. If it fails because of files you weren't asked about, don't fix those;
   mention them in your reply.
 
 ### Files you write yourself
 
-When you create or change files in a repository that has an `AIDECL.toml` (for example a website entry), declare
+When you create or change files in a repository that has a `SIGNOFF.toml` (for example a website entry), declare
 them too: `-g G3 --assisted-by "<your model name>" -a A1 --ai-reviewed-by "<your model name>, self-check by the
 generating session" -H TODO`. `-H TODO` leaves the human review and `Reviewed-by` open on purpose; tell the person
 to tick their review level in the PR and then write `@claude finish the declaration`. When they do, read the
-ticked H level and the PR author from the PR, and replace the TODOs with `aidecl annotate` (their full name if
+ticked H level and the PR author from the PR, and replace the TODOs with `aisignoff annotate` (their full name if
 known, otherwise their GitHub login).
 
-`AIDECL.toml` itself never needs a declaration.
+`SIGNOFF.toml` itself never needs a declaration.
 
 ## Pull requests and the PR declaration
 
@@ -82,12 +86,12 @@ as below.** Use the repository's own template (`.github/PULL_REQUEST_TEMPLATE.md
 - write a short "What does this PR change?" and `Closes #<issue>`;
 - under Generation, tick **G3** (you produced this change end to end), and under AI models tick your model
   family (e.g. **Claude Sonnet**);
-- under AI review, tick **A1** (you checked your own work: ran `aidecl lint`, the build, or the tests);
+- under AI review, tick **A1** (you checked your own work: ran `aisignoff lint`, the build, or the tests);
 - **leave H0–H3 and "I take responsibility" unticked.** Only the human can tick them; the check stays red until
   they do, which is intended;
 - keep the HTML comments of the template; leave other checklist items unticked unless you did them.
 
-This declares *your change* (for example the edit to `AIDECL.toml`). The declarations *inside* `AIDECL.toml`
+This declares *your change* (for example the edit to `SIGNOFF.toml`). The declarations *inside* `SIGNOFF.toml`
 describe the person's files and come from their answers; keep the two apart.
 
 URL-encode title and body. Title: a short description, e.g. `AI declaration for results/convergence-study`.

@@ -9,7 +9,7 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/` | Default PR and issue templates |
 | `.github/workflows/ai-declaration.yml` | Reusable workflow: checks the AI declaration, sets labels |
 | `.github/workflows/ai-badge.yml` | Reusable workflow: publishes the README badges |
-| `.github/workflows/aidecl.yml` | Reusable workflow: file-level declarations with aidecl (lint + badges) |
+| `.github/workflows/aidecl.yml` | Reusable workflow: file-level declarations with aisignoff (lint + badges) |
 | `.github/workflows/claude.yml`, `claude/` | The @claude assistant (see [below](#the-claude-assistant)) |
 | `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
@@ -24,7 +24,7 @@ This repository must be **public** for the defaults and the reusable workflows t
 
 ## 2. Per repository
 
-1. **Add the workflows.** Go to *Actions → New workflow* and pick **AI declaration check** and **AI declaration badges** (and **AI file declarations** for repositories that declare files with aidecl) from the "By Industrial Mathematics Group" section. Or copy them by hand into `.github/workflows/` and replace `$default-branch` with `main`.
+1. **Add the workflows.** Go to *Actions → New workflow* and pick **AI declaration check** and **AI declaration badges** (and **AI file declarations** for repositories that declare files with aisignoff) from the "By Industrial Mathematics Group" section. Or copy them by hand into `.github/workflows/` and replace `$default-branch` with `main`.
 2. **Merge settings** (*Settings → General → Pull Requests*):
    - allow **merge commits** only, so the full history of each PR is kept,
    - default merge commit message: **"Pull request title and description"**. This puts the ticked declaration questions into the merge commit on `main`, where the badges read them. Merge on GitHub, not locally: a local merge doesn't carry the description.
@@ -44,35 +44,35 @@ This repository must be **public** for the defaults and the reusable workflows t
 
 The three dynamic badges show "no declarations yet" until the first declared PR is merged. Run the *AI badge* workflow once by hand (*Actions → AI badge → Run workflow*) to create the `badges` branch.
 
-## Optional: file-level declarations (aidecl)
+## Optional: file-level declarations (aisignoff)
 
 For repositories with results, data or papers, or with casual single-commit uploads:
 
-1. **Once for the organisation:** create the public repository `industrial-mathematics-group/aidecl` from the aidecl source and push it. The workflow installs the tool from there; tag a release (e.g. `v0.3.0`) if you want repositories to pin it.
-2. **Per repository:** add `AIDECL.toml` (`aidecl init …`, `aidecl annotate …`) and the **AI file declarations** workflow (*Actions → New workflow*). It runs `aidecl lint` on every push and PR, and on pushes to `main` it publishes the badges:
+1. **Once for the organisation:** create the public repository `industrial-mathematics-group/aisignoff` from the aisignoff source and push it. The workflow installs the tool from there; tag a release (e.g. `v0.3.0`) if you want repositories to pin it.
+2. **Per repository:** add `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) and the **AI file declarations** workflow (*Actions → New workflow*). It runs `aisignoff lint` on every push and PR, and on pushes to `main` it publishes the badges:
 
 ```markdown
-[![AI generation (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aidecl-generation.json)](https://github.com/industrial-mathematics-group/aidecl)
-[![Human review (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aidecl-human-review.json)](https://github.com/industrial-mathematics-group/aidecl)
-[![AI review (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aidecl-ai-review.json)](https://github.com/industrial-mathematics-group/aidecl)
+[![AI generation (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-generation.json)](https://github.com/industrial-mathematics-group/aisignoff)
+[![Human review (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-human-review.json)](https://github.com/industrial-mathematics-group/aisignoff)
+[![AI review (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-ai-review.json)](https://github.com/industrial-mathematics-group/aisignoff)
 ```
 
 3. Optionally require the status check **`aidecl / lint`** on `main`.
 
-Both systems can run side by side: the PR check and its badges describe changes, aidecl describes files. They use different badge files on the same `badges` branch.
+Both systems can run side by side: the PR check and its badges describe changes, aisignoff describes files. They use different badge files on the same `badges` branch.
 
 ## The @claude assistant
 
-Lets group members ask Claude in issues and pull requests, mainly to write `AIDECL.toml` declarations and
+Lets group members ask Claude in issues and pull requests, mainly to write `SIGNOFF.toml` declarations and
 website entries without touching TOML or git. Claude runs in GitHub Actions through the official
 [Claude GitHub App](https://github.com/apps/claude) and [claude-code-action](https://github.com/anthropics/claude-code-action).
 It pushes a branch and posts a "Create PR" link; the person who asked opens the PR, ticks their review level and merges.
 
 | Path | Purpose |
 |---|---|
-| `.github/workflows/claude.yml` | Reusable workflow: installs aidecl, loads the org guide, runs Claude |
+| `.github/workflows/claude.yml` | Reusable workflow: installs aisignoff, loads the org guide, runs Claude |
 | `workflow-templates/claude.yml` | One-click caller workflow for each repository |
-| `claude/ORG-GUIDE.md` | Claude's instructions for every repository: AI levels, aidecl, the PR declaration |
+| `claude/ORG-GUIDE.md` | Claude's instructions for every repository: AI levels, aisignoff, the PR declaration |
 | `claude/README.md` | Guide for group members: how to ask Claude |
 | `claude/examples/website-CLAUDE.md` | Starting point for the website repository's `CLAUDE.md` |
 | `.github/ISSUE_TEMPLATE/claude-*.yml` | Issue forms: declare files, add to the website, ask for something else |
@@ -120,7 +120,7 @@ In the caller workflow (`with:`):
 | `model` / `model-name` | `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Anthropic)` | A stronger model, e.g. `claude-opus-5-5` / `Claude Opus 5.5 (Anthropic)`. Change both together: `model-name` is what Claude writes into declarations. |
 | `node-version` | none | `"22"` for repositories that build with Node (the website) |
 | `max-turns` | `40` | Cost guard per run |
-| `aidecl-ref`, `guide-ref` | `main` | Pin aidecl or the guide to a tag |
+| `aidecl-ref`, `guide-ref` | `main` | Pin aisignoff or the guide to a tag |
 
 Organisation-wide behaviour (levels, wording, PR declaration) is changed in `claude/ORG-GUIDE.md`; every
 repository picks it up on its next run.
@@ -131,9 +131,9 @@ repository picks it up on its next run.
 issue form / "@claude" comment
    │  caller workflow in the repository (skipped unless "@claude" is in the text)
    ▼
-reusable workflow: checkout ─► pip install aidecl ─► ORG-GUIDE.md as ~/.claude/CLAUDE.md
+reusable workflow: checkout ─► pip install aisignoff ─► ORG-GUIDE.md as ~/.claude/CLAUDE.md
    ▼
-Claude (as the Claude app): reads issue + repo CLAUDE.md, runs aidecl annotate / lint or edits files,
+Claude (as the Claude app): reads issue + repo CLAUDE.md, runs aisignoff annotate / lint or edits files,
 pushes branch claude/issue-<n>-…, posts "Create PR" link with the PR template pre-ticked (G3, model, A1)
    ▼
 person opens PR ─► ticks H0–H3 and "I take responsibility" ─► declaration / check green ─► merge
@@ -152,7 +152,7 @@ person opens PR ─► ticks H0–H3 and "I take responsibility" ─► declarat
 
 ## Minimum levels per repository
 
-Put a `[policy]` table into the repository's `AIDECL.toml`. You don't need any annotations for this, just `version = 3` and the policy. Both the PR check and `aidecl lint` enforce it:
+Put a `[policy]` table into the repository's `SIGNOFF.toml`. You don't need any annotations for this, just `version = 3` and the policy. Both the PR check and `aisignoff lint` enforce it:
 
 ```toml
 version = 3
@@ -173,11 +173,19 @@ The PR template no longer ends in trailer lines (`AI-Generation:`, `Reviewed-by:
 3. **Open pull requests** fail the check until their description has the new "AI declaration" section and no trailer lines.
 4. **History:** commits declared with trailers keep counting in the badges; nothing needs to be rewritten.
 
+## Updating from aidecl to aisignoff
+
+aidecl was renamed to aisignoff (0.4.0, also on PyPI: `pip install aisignoff`), and `AIDECL.toml` to `SIGNOFF.toml`. Keys, levels and inline tags are unchanged.
+
+1. **Nothing breaks right away:** the workflows install aisignoff, which still reads `AIDECL.toml` (with a warning), and they keep publishing the badges under the old names `aidecl-*.json` as well. Repositories that pin `aidecl-ref` to a tag from before the rename keep working too.
+2. **Per repository, when convenient:** run `aisignoff migrate` (it renames `AIDECL.toml` to `SIGNOFF.toml`), commit both sides of the rename, and switch the README badges to `aisignoff-generation.json`, `aisignoff-human-review.json` and `aisignoff-ai-review.json` (see above).
+3. **On your machine:** `pipx uninstall aidecl && pipx install aisignoff`.
+
 ## Updating from the A-, A0–A3 version
 
 The AI review scale moved up by one (A- → A0, A0 → A1, A1 → A2; A3 now means an extensive review or benchmark by a different model).
 
-1. **Existing `AIDECL.toml` files and inline tags:** run `aidecl migrate` (aidecl 0.3.0). It keeps comments and layout, and only changes the AI review levels and the version. Previous A2 values stay A2 with a note: raise them to A3 if the review was extensive or benchmarked. G0 files with the previous A0 get a TODO, since the new scale has no self-check for human-written content. Until a repository is migrated, `aidecl lint` fails with a hint to run `migrate`.
+1. **Existing `SIGNOFF.toml` files and inline tags:** run `aisignoff migrate` (aidecl 0.3.0 or later; aidecl is now called aisignoff). It keeps comments and layout, and only changes the AI review levels and the version. Previous A2 values stay A2 with a note: raise them to A3 if the review was extensive or benchmarked. G0 files with the previous A0 get a TODO, since the new scale has no self-check for human-written content. Until a repository is migrated, `aisignoff lint` fails with a hint to run `migrate`.
 2. **Policies:** `migrate` converts `ai = ...` in `[policy]` as well. A previous `ai = "A2"` (different model) becomes A2 (new session); change it to A3 to keep requiring a different model.
 3. **Commit trailers on `main`** are not rewritten. Old `A-` trailers count as A0 in the badges. Other values from the previous scale would be read on the new one and show one level too low. To prevent that, give the badge workflow the last commit on `main` that was declared on the previous scale:
 
@@ -193,8 +201,8 @@ The AI review scale moved up by one (A- → A0, A0 → A1, A1 → A2; A3 now mea
 
 ## Updating from the V0–V3 version
 
-1. **Caller workflow:** in each repository, the AI declaration caller workflow (`.github/workflows/ai-declaration.yml`) needs `contents: read` next to its other permissions. The check reads `AIDECL.toml` from the base branch.
-2. **Existing `AIDECL.toml` files and inline tags:** run `aidecl migrate`, then fill in the TODOs it reports and run `aidecl lint`.
+1. **Caller workflow:** in each repository, the AI declaration caller workflow (`.github/workflows/ai-declaration.yml`) needs `contents: read` next to its other permissions. The check reads `SIGNOFF.toml` from the base branch.
+2. **Existing `SIGNOFF.toml` files and inline tags:** run `aisignoff migrate`, then fill in the TODOs it reports and run `aisignoff lint`.
 3. **README badges:** replace them with the three new ones above. The old `ai-verification.json` and `aidecl-verification.json` files stay on the `badges` branch but are no longer updated.
 4. **Old labels:** existing PR labels `verified:V*` are removed automatically the next time the check runs on that PR. You can delete the labels themselves in the repository's label settings.
 

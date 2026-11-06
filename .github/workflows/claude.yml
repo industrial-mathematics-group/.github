@@ -30,7 +30,7 @@ on:
         type: number
         default: 40
       aidecl-ref:
-        description: Git ref (tag, branch or commit) of aidecl to install
+        description: Git ref (tag, branch or commit) of aisignoff to install (input name kept from aidecl)
         type: string
         default: main
       guide-ref:
@@ -64,10 +64,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install aidecl
+      - name: Install aisignoff
         env:
           REF: ${{ inputs.aidecl-ref }}
-        run: pip install "aidecl @ git+https://github.com/industrial-mathematics-group/aidecl@${REF}"
+        # No package name in the requirement, so refs from before the rename (aidecl <= 0.3.0) still install.
+        run: |
+          pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
+          if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
 
       - name: Set up Node.js
         if: inputs.node-version != ''
@@ -102,7 +105,7 @@ jobs:
           claude_args: |
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max-turns }}
-            --allowedTools "Bash(aidecl:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(python3:*),Bash(npm ci),Bash(npm install),Bash(npm run:*),Bash(npx astro:*)"
+            --allowedTools "Bash(aisignoff:*),Bash(aidecl:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(python3:*),Bash(npm ci),Bash(npm install),Bash(npm run:*),Bash(npx astro:*)"
       - name: Show Claude result on failure
         if: failure()
         run: |

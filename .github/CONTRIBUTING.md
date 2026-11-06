@@ -94,7 +94,7 @@ For results and data:
 
 ### Minimum levels per repository
 
-A repository can require more through a `[policy]` table in its `AIDECL.toml`. The PR check and `aidecl lint` both enforce it:
+A repository can require more through a `[policy]` table in its `SIGNOFF.toml`. The PR check and `aisignoff lint` both enforce it:
 
 ```toml
 [policy]
@@ -116,27 +116,27 @@ The **AI declaration** section of the PR template asks a few questions. Tick wha
 
 Keep the questions as they are in the template: the check needs all of them, reads only top-level boxes outside comments and code blocks, and fails if one is missing or appears twice. There are no trailer lines to fill in; the check fails on leftover `AI-Generation:`-style lines from the previous template.
 
-The check runs on every PR into `main`, adds the labels `ai:G*`, `human:H*` and `ai-review:A*`, and shows the derived declaration in its job summary, in the same keys as `AIDECL.toml`. Our repositories merge PRs with a merge commit whose message is the **PR title and description**, so the ticked questions become part of the history on `main` and travel with the code into mirrors, forks and archived releases. Each repository can show badges summarising its declared history.
+The check runs on every PR into `main`, adds the labels `ai:G*`, `human:H*` and `ai-review:A*`, and shows the derived declaration in its job summary, in the same keys as `SIGNOFF.toml`. Our repositories merge PRs with a merge commit whose message is the **PR title and description**, so the ticked questions become part of the history on `main` and travel with the code into mirrors, forks and archived releases. Each repository can show badges summarising its declared history.
 
-### Declaring files: AIDECL.toml
+### Declaring files: SIGNOFF.toml
 
-The PR declaration describes each *change*. Repositories that also contain results, data, notebooks or papers, or that are published in a single commit, declare the *files* instead. They use [aidecl](https://github.com/industrial-mathematics-group/aidecl) and a path-based `AIDECL.toml`, which works like `REUSE.toml`:
+The PR declaration describes each *change*. Repositories that also contain results, data, notebooks or papers, or that are published in a single commit, declare the *files* instead. They use [aisignoff](https://github.com/industrial-mathematics-group/aisignoff) and a path-based `SIGNOFF.toml`, which works like `REUSE.toml`:
 
 ```bash
-pipx install "git+https://github.com/industrial-mathematics-group/aidecl"
-aidecl init -g G0 -H H2 -a A0 --reviewed-by "Jane Doe"            # default for everything
-aidecl annotate results/ -g G2 -H H1 -a A1 \
+pipx install "git+https://github.com/industrial-mathematics-group/aisignoff"
+aisignoff init -g G0 -H H2 -a A0 --reviewed-by "Jane Doe"            # default for everything
+aisignoff annotate results/ -g G2 -H H1 -a A1 \
     --assisted-by "Claude Opus 5.5 (Anthropic)" \
     --ai-reviewed-by "Claude Opus 5.5 (Anthropic), same session" \
     --reviewed-by "Jane Doe"                                       # the exceptions
-aidecl lint                                                        # every file declared?
+aisignoff lint                                                        # every file declared?
 ```
 
-The same levels, rules and policy apply. Text files can carry the declaration in a header comment instead (`aidecl annotate FILE --inline`).
+The same levels, rules and policy apply. Text files can carry the declaration in a header comment instead (`aisignoff annotate FILE --inline`).
 
 Prefer not to use the command line? In repositories with the @claude assistant, the issue form **Claude: declare AI use for files** writes the declaration for you; see [Asking Claude on GitHub](../claude/README.md).
 
-If a repository has an `AIDECL.toml`, **update it in the same PR** whenever your change alters how a file was created or reviewed. The *AI file declarations* check fails if any file is left without a valid declaration.
+If a repository has a `SIGNOFF.toml`, **update it in the same PR** whenever your change alters how a file was created or reviewed. The *AI file declarations* check fails if any file is left without a valid declaration.
 
 **From earlier versions of this policy.** The previous version had the AI review levels A-, A0–A3; the scale moved up by one:
 
@@ -156,7 +156,7 @@ The first version had one verification axis, V0–V3:
 | V1, V2 | A2 |
 | V3 | H2 + A2 |
 
-`aidecl migrate` converts existing `AIDECL.toml` files and inline tags. Commits declared with the trailer lines of earlier templates stay as they are and are counted in the badges: V0–V3 trailers are converted, and `A-` counts as A0. For other trailers on the previous scale, the repository's badge workflow needs the last such commit (`previous-ai-scale-until`, see SETUP.md); otherwise they show one level too low.
+`aisignoff migrate` converts existing `SIGNOFF.toml` files and inline tags. Commits declared with the trailer lines of earlier templates stay as they are and are counted in the badges: V0–V3 trailers are converted, and `A-` counts as A0. For other trailers on the previous scale, the repository's badge workflow needs the last such commit (`previous-ai-scale-until`, see SETUP.md); otherwise they show one level too low.
 
 ### Responsibility
 

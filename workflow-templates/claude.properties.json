@@ -1,6 +1,6 @@
 {
   "name": "Claude assistant (@claude)",
-  "description": "Lets group members ask Claude in issues and PRs, e.g. to write AIDECL.toml declarations or website entries. Claude pushes a branch; a human opens and merges the PR.",
+  "description": "Lets group members ask Claude in issues and PRs, e.g. to write SIGNOFF.toml declarations or website entries. Claude pushes a branch; a human opens and merges the PR.",
   "iconName": "octicon comment-discussion",
   "categories": ["Automation"]
 }

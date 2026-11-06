@@ -1,12 +1,12 @@
 name: "Claude: declare AI use for files"
-description: Claude writes the AI declaration (AIDECL.toml) for files or folders in this repository. No TOML needed.
+description: Claude writes the AI declaration (SIGNOFF.toml) for files or folders in this repository. No TOML needed.
 title: "AI declaration: "
 labels: ["ai-declaration"]
 body:
   - type: markdown
     attributes:
       value: |
-        Answer in plain words; Claude turns your answers into `AIDECL.toml` entries, checks them with `aidecl lint`
+        Answer in plain words; Claude turns your answers into `SIGNOFF.toml` entries, checks them with `aisignoff lint`
         and posts a link to open the pull request. The levels are explained in the
         [AI policy](https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#ai-assisted-contributions).
 

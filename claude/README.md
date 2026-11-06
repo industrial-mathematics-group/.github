@@ -1,7 +1,7 @@
 # Asking Claude on GitHub
 
 In our repositories you can ask Claude, an AI assistant, to do the fiddly parts for you: write the AI
-declaration (`AIDECL.toml`) for your files, add a publication to the website, or make a small change.
+declaration (`SIGNOFF.toml`) for your files, add a publication to the website, or make a small change.
 You describe what you want in an issue; Claude prepares it on a branch; **you check it and open the pull request.**
 You never have to write TOML or use git.
 
@@ -52,7 +52,7 @@ Claude adds the declaration to your pull request.
 - **The form's answers** describe *your files*: how much AI helped make them and how you checked them.
   Claude only writes down what you said.
 - **The ticks in the pull request** describe *Claude's change* to the repository (for example the edit to
-  `AIDECL.toml`). Claude ticks its own part (G3, its model, A1); you tick how you checked it (H).
+  `SIGNOFF.toml`). Claude ticks its own part (G3, its model, A1); you tick how you checked it (H).
 
 If you're unsure which level fits, see the [AI policy](https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#ai-assisted-contributions),
 or ask Claude in the issue.

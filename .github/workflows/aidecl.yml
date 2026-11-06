@@ -1,7 +1,9 @@
-# Reusable workflow: file-level AI declarations with aidecl (AIDECL.toml / inline tags).
+# Reusable workflow: file-level AI declarations with aisignoff (SIGNOFF.toml / inline tags).
+# aisignoff was called aidecl up to 0.3.0; it still reads AIDECL.toml until a repository runs 'aisignoff migrate'.
 #   lint    every push and pull request: fails if a file has no valid declaration
-#   badges  pushes to the default branch: publishes aidecl-generation.json,
-#           aidecl-human-review.json and aidecl-ai-review.json to the orphan branch "badges"
+#   badges  pushes to the default branch: publishes aisignoff-generation.json,
+#           aisignoff-human-review.json and aisignoff-ai-review.json to the orphan branch "badges",
+#           plus copies under the old names aidecl-*.json so existing README badges keep working
 # Called from each repository (see workflow-templates/aidecl.yml).
 name: AI file declarations
 
@@ -9,7 +11,7 @@ on:
   workflow_call:
     inputs:
       aidecl-ref:
-        description: Git ref (tag, branch or commit) of aidecl to install
+        description: Git ref (tag, branch or commit) of aisignoff to install (input name kept from aidecl)
         type: string
         default: main
       weight:
@@ -27,14 +29,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install aidecl
+      - name: Install aisignoff
         env:
           REF: ${{ inputs.aidecl-ref }}
-        run: pip install "aidecl @ git+https://github.com/industrial-mathematics-group/aidecl@${REF}"
+        # No package name in the requirement, so refs from before the rename (aidecl <= 0.3.0) still install.
+        run: |
+          pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
+          if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
       - name: Check declarations
         run: |
-          { echo '```'; aidecl report || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          aidecl lint
+          { echo '```'; "$TOOL" report || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          "$TOOL" lint
 
   badges:
     # Also runs when lint fails, so the badge shows the undeclared share; skipped when cancelled.
@@ -53,17 +58,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install aidecl
+      - name: Install aisignoff
         env:
           REF: ${{ inputs.aidecl-ref }}
-        run: pip install "aidecl @ git+https://github.com/industrial-mathematics-group/aidecl@${REF}"
+        # No package name in the requirement, so refs from before the rename (aidecl <= 0.3.0) still install.
+        run: |
+          pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
+          if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
       - name: Build badges
         env:
           WEIGHT: ${{ inputs.weight }}
-        run: aidecl badge --out "$RUNNER_TEMP/aidecl-badges" --weight "$WEIGHT"
+        run: |
+          "$TOOL" badge --out "$RUNNER_TEMP/aidecl-badges" --weight "$WEIGHT"
+          # publish under both names: aisignoff-*.json (new) and aidecl-*.json (README badges from before the rename)
+          cd "$RUNNER_TEMP/aidecl-badges"
+          for axis in generation human-review ai-review; do
+            if [ -f "aisignoff-$axis.json" ]; then cp "aisignoff-$axis.json" "aidecl-$axis.json"
+            else cp "aidecl-$axis.json" "aisignoff-$axis.json"; fi
+          done
       - name: Publish to the badges branch
         env:
-          FILES: aidecl-generation.json aidecl-human-review.json aidecl-ai-review.json
+          FILES: aisignoff-generation.json aisignoff-human-review.json aisignoff-ai-review.json aidecl-generation.json aidecl-human-review.json aidecl-ai-review.json
           SRC: ${{ runner.temp }}/aidecl-badges
           MESSAGE: Update AI file declaration badges
         run: |
