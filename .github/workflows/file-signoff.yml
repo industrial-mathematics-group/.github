@@ -1,6 +1,7 @@
 # Reusable workflow: file-level AI declarations with aisignoff (SIGNOFF.toml / inline tags).
 # aisignoff was called aidecl up to 0.3.0; it still reads AIDECL.toml until a repository runs 'aisignoff migrate'.
-#   lint    every push and pull request: fails if a file has no valid declaration
+#   lint    every push and pull request: fails if a file has no valid declaration; writes the level mix
+#           per folder to the job summary and uploads the interactive folder report as an artifact
 #   badges  pushes to the default branch: publishes aisignoff-generation.json,
 #           aisignoff-human-review.json and aisignoff-ai-review.json to the orphan branch "badges",
 #           plus copies under the old names aidecl-*.json so existing README badges keep working
@@ -36,9 +37,22 @@ jobs:
         run: |
           pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
           if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
+      - name: Summary and folder report
+        run: |
+          # aisignoff >= 0.5.0: level mix per folder and an interactive report; older refs: the plain summary
+          if "$TOOL" report --help 2>/dev/null | grep -q -- '--tree'; then
+            { echo '### AI signoff'; "$TOOL" report --tree --markdown --depth 3 || true; } >> "$GITHUB_STEP_SUMMARY"
+            "$TOOL" report --html "$RUNNER_TEMP/aisignoff-report/aisignoff-report.html" || true
+          else
+            { echo '```'; "$TOOL" report || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aisignoff-report
+          path: ${{ runner.temp }}/aisignoff-report/aisignoff-report.html
+          if-no-files-found: ignore   # older aisignoff refs write no report
       - name: Check declarations
         run: |
-          { echo '```'; "$TOOL" report || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           "$TOOL" lint
 
   badges:
