@@ -39,7 +39,6 @@ Human review (at least H0 is required; the levels build on each other):
 - [ ] **H3** I validated it independently: new tests, a reference solution or method, or a second person's review
 
 AI review (leave all unticked for A0; AI-written changes need at least A1; the highest ticked one counts):
-- [ ] **A0** No AI checks, benchmarks or reviews
 - [ ] **A1** The AI that wrote the change checked its own work: it ran the tests and reviewed the result (not for human-written changes, G0)
 - [ ] **A2** A new AI session, without the generating conversation, reviewed the final change and ran the tests. Model, if not one of the above: 
 - [ ] **A3** A different model of similar or higher capability reviewed it extensively or benchmarked it: new tests, reference methods or solutions. Model: 
