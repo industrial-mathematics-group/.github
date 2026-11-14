@@ -29,10 +29,10 @@ on:
         description: Upper limit of agent turns per run (cost guard)
         type: number
         default: 40
-      aidecl-ref:
-        description: Git ref (tag, branch or commit) of aisignoff to install (input name kept from aidecl)
+      aisignoff-version:
+        description: Release of aisignoff to install from PyPI (keep it at the version File-signoff uses)
         type: string
-        default: main
+        default: "1.0.0rc1"
       guide-ref:
         description: Git ref of industrial-mathematics-group/.github to read claude/ORG-GUIDE.md from
         type: string
@@ -66,11 +66,8 @@ jobs:
 
       - name: Install aisignoff
         env:
-          REF: ${{ inputs.aidecl-ref }}
-        # No package name in the requirement, so refs from before the rename (aidecl <= 0.3.0) still install.
-        run: |
-          pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
-          if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
+          VERSION: ${{ inputs.aisignoff-version }}
+        run: pip install "aisignoff==${VERSION}"
 
       - name: Set up Node.js
         if: inputs.node-version != ''
@@ -105,7 +102,7 @@ jobs:
           claude_args: |
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max-turns }}
-            --allowedTools "Bash(aisignoff:*),Bash(aidecl:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(python3:*),Bash(npm ci),Bash(npm install),Bash(npm run:*),Bash(npx astro:*)"
+            --allowedTools "Bash(aisignoff:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(grep:*),Bash(python3:*),Bash(npm ci),Bash(npm install),Bash(npm run:*),Bash(npx astro:*)"
       - name: Show Claude result on failure
         if: failure()
         run: |

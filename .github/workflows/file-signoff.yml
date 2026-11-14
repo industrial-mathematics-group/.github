@@ -1,20 +1,19 @@
 # Reusable workflow: file-level AI declarations with aisignoff (SIGNOFF.toml / inline tags).
-# aisignoff was called aidecl up to 0.3.0; it still reads AIDECL.toml until a repository runs 'aisignoff migrate'.
-#   lint    every push and pull request: fails if a file has no valid declaration; writes the level mix
-#           per folder to the job summary and uploads the interactive folder report as an artifact
+#   lint    every push, pull request and merge queue run: fails if a file (or, with [history], a line)
+#           has no valid declaration; writes the level mix per folder to the job summary and uploads
+#           the interactive folder report as an artifact
 #   badges  pushes to the default branch: publishes aisignoff-generation.json,
-#           aisignoff-human-review.json and aisignoff-ai-review.json to the orphan branch "badges",
-#           plus copies under the old names aidecl-*.json so existing README badges keep working
+#           aisignoff-human-review.json and aisignoff-ai-review.json to the orphan branch "badges"
 # Called from each repository (see workflow-templates/file-signoff.yml).
 name: File-signoff
 
 on:
   workflow_call:
     inputs:
-      aisignoff-ref:
-        description: Git ref (tag, branch or commit) of aisignoff to install
+      aisignoff-version:
+        description: Release of aisignoff to install from PyPI (pinned, so a new release can't change the check unannounced)
         type: string
-        default: main
+        default: "1.0.0rc1"
       weight:
         description: Badge weighting, "files" or "lines"
         type: string
@@ -34,40 +33,36 @@ jobs:
           python-version: "3.12"
       - name: Install aisignoff
         env:
-          REF: ${{ inputs.aisignoff-ref }}
-        # No package name in the requirement, so refs from before the rename (aidecl <= 0.3.0) still install.
-        run: |
-          pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
-          if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
+          VERSION: ${{ inputs.aisignoff-version }}
+        run: pip install "aisignoff==${VERSION}"
       - name: Summary and folder report
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
-          # aisignoff >= 0.5.0: level mix per folder and an interactive report; older refs: the plain summary
-          if "$TOOL" report --help 2>/dev/null | grep -q -- '--tree'; then
-            { echo '### AI signoff'; "$TOOL" report --tree --markdown --depth 3 || true; } >> "$GITHUB_STEP_SUMMARY"
-            "$TOOL" report --html "$RUNNER_TEMP/aisignoff-report/aisignoff-report.html" || true
-          else
-            { echo '```'; "$TOOL" report || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          { echo '### AI signoff'; aisignoff report --tree --markdown --depth 3 || true; } >> "$GITHUB_STEP_SUMMARY"
+          # outside the work tree, or lint would count it as an undeclared file; in a pull request, the lines
+          # it changes are marked: since the merge preview's first parent, the base branch as this run merged it
+          SINCE=""
+          if [ "$EVENT" = pull_request ]; then SINCE=HEAD^1; fi
+          aisignoff report --html "$RUNNER_TEMP/aisignoff-report.html" --with-source ${SINCE:+--since "$SINCE"} || true
       - uses: actions/upload-artifact@v4
         with:
           name: aisignoff-report
-          path: ${{ runner.temp }}/aisignoff-report/aisignoff-report.html
-          if-no-files-found: ignore   # older aisignoff refs write no report
+          path: ${{ runner.temp }}/aisignoff-report.html
       - name: Check declarations
-        run: |
-          "$TOOL" lint
+        run: aisignoff lint
 
   badges:
     # Also runs when lint fails, so the badge shows the undeclared share; skipped when cancelled.
     if: >-
-      !cancelled() && github.event_name != 'pull_request' &&
+      !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' &&
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     needs: lint
     runs-on: ubuntu-latest
     permissions:
       contents: write
     concurrency:
-      group: aidecl-badges-${{ github.repository }}
+      group: aisignoff-badges-${{ github.repository }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
@@ -78,26 +73,16 @@ jobs:
           python-version: "3.12"
       - name: Install aisignoff
         env:
-          REF: ${{ inputs.aisignoff-ref }}
-        # No package name in the requirement, so refs from before the rename (aidecl <= 0.3.0) still install.
-        run: |
-          pip install "git+https://github.com/industrial-mathematics-group/aisignoff@${REF}"
-          if command -v aisignoff >/dev/null; then echo "TOOL=aisignoff" >> "$GITHUB_ENV"; else echo "TOOL=aidecl" >> "$GITHUB_ENV"; fi
+          VERSION: ${{ inputs.aisignoff-version }}
+        run: pip install "aisignoff==${VERSION}"
       - name: Build badges
         env:
           WEIGHT: ${{ inputs.weight }}
-        run: |
-          "$TOOL" badge --out "$RUNNER_TEMP/aidecl-badges" --weight "$WEIGHT"
-          # publish under both names: aisignoff-*.json (new) and aidecl-*.json (README badges from before the rename)
-          cd "$RUNNER_TEMP/aidecl-badges"
-          for axis in generation human-review ai-review; do
-            if [ -f "aisignoff-$axis.json" ]; then cp "aisignoff-$axis.json" "aidecl-$axis.json"
-            else cp "aidecl-$axis.json" "aisignoff-$axis.json"; fi
-          done
+        run: aisignoff badge --out "$RUNNER_TEMP/aisignoff-badges" --weight "$WEIGHT"
       - name: Publish to the badges branch
         env:
-          FILES: aisignoff-generation.json aisignoff-human-review.json aisignoff-ai-review.json aidecl-generation.json aidecl-human-review.json aidecl-ai-review.json
-          SRC: ${{ runner.temp }}/aidecl-badges
+          FILES: aisignoff-generation.json aisignoff-human-review.json aisignoff-ai-review.json
+          SRC: ${{ runner.temp }}/aisignoff-badges
           MESSAGE: Update AI file declaration badges
         run: |
           # Other workflows (e.g. "Signoff-Badges") write other files to the same branch,

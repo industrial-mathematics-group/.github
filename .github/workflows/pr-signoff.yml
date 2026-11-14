@@ -10,12 +10,12 @@
 #   A3        names the reviewing model after "Model:"
 #   Reviewed-by is the PR author, or the "Responsible person: @login" line for PRs opened by bots.
 #   G1-G3 need at least A1; G0 can't be A1 (no generating session to check itself).
-#   A [policy] table in the repository's SIGNOFF.toml (formerly AIDECL.toml) can require more.
+#   A [policy] table in the repository's SIGNOFF.toml can require more.
 #   The declaration travels into git through the merge commit, whose message is the PR
 #   title and description (see SETUP.md); the "Signoff-Badges" workflow reads it from there.
 #
 # Security: runs on pull_request_target so it can label PRs from forks. It only reads the PR
-# description and the SIGNOFF.toml (or AIDECL.toml) of the BASE branch; it never checks out or runs code from the PR.
+# description and the SIGNOFF.toml of the BASE branch; it never checks out or runs code from the PR.
 name: PR-signoff
 
 on:
@@ -38,7 +38,6 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: |
             SIGNOFF.toml
-            AIDECL.toml
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -48,9 +47,8 @@ jobs:
           python3 - <<'PY'
           import json, os, sys, tomllib
           policy = {}
-          # SIGNOFF.toml; AIDECL.toml is its name from before aidecl became aisignoff
-          name = next((n for n in ("SIGNOFF.toml", "AIDECL.toml") if os.path.exists(n)), None)
-          if name:
+          name = "SIGNOFF.toml"
+          if os.path.exists(name):
               try:
                   data = tomllib.load(open(name, "rb"))
               except tomllib.TOMLDecodeError as e:
@@ -58,14 +56,9 @@ jobs:
               policy = data.get("policy", {}) or {}
               if not isinstance(policy, dict):
                   sys.exit(f"{name}: [policy] must be a table")
-              if data.get("version") == 2:
-                  # not migrated yet: the AI review scale moved up by one (A- -> A0, A0 -> A1, A1 -> A2)
-                  print(f"{name} on the base branch is version 2; reading its policy on the old AI review scale. "
-                        "Run 'aisignoff migrate' to convert it.")
-                  old = {"A-": "A0", "A0": "A1", "A1": "A2", "A2": "A2", "A3": "A3"}
-                  for req in policy.values():
-                      if isinstance(req, dict) and req.get("ai") in old:
-                          req["ai"] = old[req["ai"]]
+              if data.get("version") != 3:
+                  sys.exit(f"{name} on the base branch: 'version = 3' is required "
+                           "(convert versions 1 and 2 with 'uvx aisignoff==1.0.0rc1 migrate')")
               for gen, req in policy.items():
                   if gen != "*" and gen not in ("G0", "G1", "G2", "G3"):
                       sys.exit(f"{name} [policy]: unknown key '{gen}' (use \"*\", G0-G3)")
@@ -250,7 +243,7 @@ jobs:
 
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
-            const isAiLabel = (name) => /^(ai:G[0-3]|human:H[0-3]|ai-review:A[-0-3]|verified:V[0-3])$/.test(name);
+            const isAiLabel = (name) => /^(ai:G[0-3]|human:H[0-3]|ai-review:A[0-3])$/.test(name);
             const currentLabels = async () =>
               (await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number, per_page: 100 })).data.map(l => l.name);
 
@@ -299,7 +292,7 @@ jobs:
               if (!existing) {
                 await github.rest.issues.createLabel({ owner, repo, name, color, description });
               } else if (existing.description !== description || existing.color.toLowerCase() !== color.toLowerCase()) {
-                // e.g. ai-review:A1 from the previous scale, where it meant "independent session"
+                // a label someone edited by hand
                 await github.rest.issues.updateLabel({ owner, repo, name, color, description });
               }
             }

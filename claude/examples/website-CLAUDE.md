@@ -40,5 +40,5 @@ Omit a field rather than inventing or guessing a value; ask in the issue if a re
 ## Before you finish
 
 1. `npm ci` (once), then `npm run build`. Fix errors in your own entry; if the build fails for other reasons, say so.
-2. If `AIDECL.toml` exists, declare the new file as described in the org guide (G3, `-H TODO`).
+2. If `SIGNOFF.toml` exists, declare the new file as described in the org guide (G3, `-H TODO`).
 3. In your reply, show the entry's fields as a short list so the person can check them without opening the file.

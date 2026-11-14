@@ -6,20 +6,15 @@
 # The declaration of a merged PR is read from its merge commit, whose message is the PR title
 # and description (see SETUP.md): the ticked G, H and A questions of the PR template.
 # Older commits declared with trailer lines (AI-Generation: ...) are read from those.
-# Commits with the old V0-V3 trailers are mapped conservatively (unknown parts shown as "unknown").
-# "AI-Review: A-" (previous scale) counts as A0. Commits up to the input previous-ai-scale-until
-# (a commit SHA on main) are read on the previous AI review scale (A0 -> A1, A1 -> A2).
+# Commit messages can't be rewritten, so older commits keep counting as they were declared:
+# the V0-V3 trailers of the first policy are mapped conservatively (unknown parts shown as "unknown"),
+# and "AI-Review: A-" of the second one counts as A0.
 # Only commits on the first-parent history that carry a declaration are counted
 # (commits from before the policy are ignored; the count is shown in the job summary).
 name: Signoff-Badges
 
 on:
   workflow_call:
-    inputs:
-      previous-ai-scale-until:
-        description: Last commit on main whose AI-Review trailer uses the previous scale (A-, A0-A3)
-        type: string
-        default: ""
 
 jobs:
   badge:
@@ -35,8 +30,6 @@ jobs:
           fetch-depth: 0
 
       - name: Count declarations
-        env:
-          PREVIOUS_SCALE_UNTIL: ${{ inputs.previous-ai-scale-until }}
         run: |
           python3 - <<'PY'
           import json, math, os, re, subprocess
@@ -48,18 +41,6 @@ jobs:
           ).stdout
           entries = [m.strip("\n").split("\n", 1) for m in log.split("\x00") if m.strip()]
           entries = [(e[0], e[1] if len(e) > 1 else "") for e in entries]
-
-          # commits up to (and including) this one use the previous AI review scale
-          until = os.environ.get("PREVIOUS_SCALE_UNTIL", "").strip()
-          old_scale = set()
-          if until:
-              shas = [sha for sha, _ in entries]
-              full = subprocess.run(["git", "rev-parse", "--verify", until + "^{commit}"],
-                                    capture_output=True, text=True).stdout.strip()
-              if full not in shas:
-                  raise SystemExit(f"previous-ai-scale-until: {until} is not a commit on the first-parent history of main")
-              old_scale = set(shas[shas.index(full):])   # git log lists newest first
-          OLD_AI = {"A-": "A0", "A0": "A1", "A1": "A2", "A2": "A2", "A3": "A3"}
 
           def trailer_block(msg):
               """The trailer paragraph holding the declaration (GitHub may append a separate
@@ -126,10 +107,7 @@ jobs:
                   continue
               h = trailer(msg, "Human-Review", "H[0-3]")
               a = trailer(msg, "AI-Review", "A-|A[0-3]")
-              if a and sha in old_scale:
-                  # a self-check of human-written content doesn't exist on the new scale
-                  a = None if (a == "A0" and g == "G0") else OLD_AI[a]
-              elif a == "A-":
+              if a == "A-":  # "none" on the second policy's scale
                   a = "A0"
               v = trailer(msg, "AI-Verification", "V[0-3]")
               if h is None and a is None and v:  # first version of the policy (V0-V3), mapped conservatively

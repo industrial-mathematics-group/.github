@@ -10,7 +10,6 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/workflows/pr-signoff.yml` | Reusable workflow *PR-signoff*: checks the AI declaration of a PR, sets labels |
 | `.github/workflows/signoff-badges.yml` | Reusable workflow *Signoff-Badges*: publishes the README badges of the PR declarations |
 | `.github/workflows/file-signoff.yml` | Reusable workflow *File-signoff*: file-level declarations with aisignoff (lint + badges) |
-| `.github/workflows/ai-declaration.yml`, `ai-badge.yml`, `aidecl.yml` | Deprecated wrappers under the old names, see [Renamed workflows](#renamed-workflows) |
 | `.github/workflows/claude.yml`, `claude/` | The @claude assistant (see [below](#the-claude-assistant)) |
 | `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
@@ -49,8 +48,8 @@ The three dynamic badges show "no declarations yet" until the first declared PR 
 
 For repositories with results, data or papers, or with casual single-commit uploads:
 
-1. **Once for the organisation:** create the public repository `industrial-mathematics-group/aisignoff` from the aisignoff source and push it. The workflow installs the tool from there; releases are also on PyPI (`pip install aisignoff`); repositories can pin a release tag (e.g. `v0.4.0`).
-2. **Per repository:** add `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) and the **File-signoff** workflow (*Actions → New workflow*). It runs `aisignoff lint` on every push and PR, and on pushes to `main` it publishes the badges:
+1. **Once for the organisation:** the workflow installs aisignoff from PyPI, pinned by the input `aisignoff-version` of `.github/workflows/file-signoff.yml` (and of `claude.yml`, keep both at the same version). Raise the default there to update every repository at once, after checking the aisignoff changelog for **Breaking** changes; a repository can set `aisignoff-version` itself to differ.
+2. **Per repository:** add `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) and the **File-signoff** workflow (*Actions → New workflow*). It runs `aisignoff lint` on every push, PR and merge queue run, and on pushes to `main` it publishes the badges:
 
 ```markdown
 [![AI generation (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-generation.json)](https://github.com/industrial-mathematics-group/aisignoff)
@@ -121,7 +120,8 @@ In the caller workflow (`with:`):
 | `model` / `model-name` | `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Anthropic)` | A stronger model, e.g. `claude-opus-5-5` / `Claude Opus 5.5 (Anthropic)`. Change both together: `model-name` is what Claude writes into declarations. |
 | `node-version` | none | `"22"` for repositories that build with Node (the website) |
 | `max-turns` | `40` | Cost guard per run |
-| `aidecl-ref`, `guide-ref` | `main` | Pin aisignoff (input name from before the rename) or the guide to a tag |
+| `aisignoff-version` | `1.0.0rc1` | The aisignoff release Claude uses; keep it at File-signoff's |
+| `guide-ref` | `main` | Pin the guide to a tag |
 
 Organisation-wide behaviour (levels, wording, PR declaration) is changed in `claude/ORG-GUIDE.md`; every
 repository picks it up on its next run.
@@ -174,46 +174,17 @@ The PR template no longer ends in trailer lines (`AI-Generation:`, `Reviewed-by:
 3. **Open pull requests** fail the check until their description has the new "AI declaration" section and no trailer lines.
 4. **History:** commits declared with trailers keep counting in the badges; nothing needs to be rewritten.
 
-## Renamed workflows
+## Repositories on older formats
 
-The workflows were renamed to match aisignoff: *AI declaration* is now **PR-signoff**, *AI file declarations* is now **File-signoff**, and *AI badge* is now **Signoff-Badges**. The old reusable workflows (`ai-declaration.yml`, `aidecl.yml`, `ai-badge.yml`) still work: they call the new ones. To switch a repository:
+aisignoff reads only `SIGNOFF.toml` with `version = 3`. A repository that still has `AIDECL.toml` (the name up to aidecl 0.3.0), version 1 (V0–V3) or version 2 (A-, A0–A3) fails *PR-signoff*, and *File-signoff* from aisignoff 1.0.0rc2 on, until it is converted, once, with the last release that does it:
 
-1. **Replace the caller workflows** in its `.github/workflows/`: delete `ai-declaration.yml`, `aidecl.yml` and `ai-badge.yml`, then add **PR-signoff**, **File-signoff** (if it declares files) and **Signoff-Badges** from *Actions → New workflow*. If the old callers set `with:` options, carry them over; `aidecl-ref` is now `aisignoff-ref`.
-2. **Required status checks:** `declaration / check` becomes **`pr-signoff / check`**, and `aidecl / lint` becomes **`file-signoff / lint`**. Update the ruleset or branch protection in the same go. Through the old wrappers the checks are called `declaration / check / check` and `aidecl / aidecl / lint`, so a required check with the old name stays pending until the caller is replaced.
-3. **Badges** keep their file names, so the README doesn't change.
+```bash
+uvx aisignoff==1.0.0rc1 migrate --dry-run
+uvx aisignoff==1.0.0rc1 migrate
+git add -A SIGNOFF.toml AIDECL.toml
+```
 
-## Updating from aidecl to aisignoff
-
-aidecl was renamed to aisignoff (0.4.0, also on PyPI: `pip install aisignoff`), and `AIDECL.toml` to `SIGNOFF.toml`. Keys, levels and inline tags are unchanged.
-
-1. **Nothing breaks right away:** the workflows install aisignoff, which still reads `AIDECL.toml` (with a warning), and they keep publishing the badges under the old names `aidecl-*.json` as well. Repositories that pin `aidecl-ref` to a tag from before the rename keep working too.
-2. **Per repository, when convenient:** run `aisignoff migrate` (it renames `AIDECL.toml` to `SIGNOFF.toml`), commit both sides of the rename, and switch the README badges to `aisignoff-generation.json`, `aisignoff-human-review.json` and `aisignoff-ai-review.json` (see above).
-3. **On your machine:** `pipx uninstall aidecl && pipx install aisignoff`.
-
-## Updating from the A-, A0–A3 version
-
-The AI review scale moved up by one (A- → A0, A0 → A1, A1 → A2; A3 now means an extensive review or benchmark by a different model).
-
-1. **Existing `SIGNOFF.toml` files and inline tags:** run `aisignoff migrate` (aidecl 0.3.0 or later; aidecl is now called aisignoff). It keeps comments and layout, and only changes the AI review levels and the version. Previous A2 values stay A2 with a note: raise them to A3 if the review was extensive or benchmarked. G0 files with the previous A0 get a TODO, since the new scale has no self-check for human-written content. Until a repository is migrated, `aisignoff lint` fails with a hint to run `migrate`.
-2. **Policies:** `migrate` converts `ai = ...` in `[policy]` as well. A previous `ai = "A2"` (different model) becomes A2 (new session); change it to A3 to keep requiring a different model.
-3. **Commit trailers on `main`** are not rewritten. Old `A-` trailers count as A0 in the badges. Other values from the previous scale would be read on the new one and show one level too low. To prevent that, give the badge workflow the last commit on `main` that was declared on the previous scale:
-
-   ```yaml
-   jobs:
-     badge:
-       uses: industrial-mathematics-group/.github/.github/workflows/signoff-badges.yml@main
-       with:
-         previous-ai-scale-until: 0123abc   # this commit and all before it use A-, A0-A3
-   ```
-4. **Open pull requests** whose description uses the previous ticks or levels fail the check until they're updated to the new template. The `ai-review:A-` label is removed automatically.
-5. **Labels:** the check gives the existing `ai-review:A0`–`A3` labels their new colours and descriptions the first time it uses them. Closed PRs keep their labels, which then read on the new scale. Rename the old labels first (e.g. to `old-ai-review:A1`) if you want to keep their meaning visible.
-
-## Updating from the V0–V3 version
-
-1. **Caller workflow:** in each repository, the AI declaration caller workflow (`.github/workflows/ai-declaration.yml`) needs `contents: read` next to its other permissions. The check reads `SIGNOFF.toml` from the base branch.
-2. **Existing `SIGNOFF.toml` files and inline tags:** run `aisignoff migrate`, then fill in the TODOs it reports and run `aisignoff lint`.
-3. **README badges:** replace them with the three new ones above. The old `ai-verification.json` and `aidecl-verification.json` files stay on the `badges` branch but are no longer updated.
-4. **Old labels:** existing PR labels `verified:V*` are removed automatically the next time the check runs on that PR. You can delete the labels themselves in the repository's label settings.
+Fill in the `TODO`s it leaves, run `aisignoff lint`, and switch README badges from `aidecl-*.json` to `aisignoff-*.json` (the workflow no longer writes the old names). Callers of the removed wrappers `ai-declaration.yml`, `aidecl.yml` and `ai-badge.yml` switch to **PR-signoff**, **File-signoff** and **Signoff-Badges** (required checks `pr-signoff / check` and `file-signoff / lint`); the inputs `aidecl-ref`, `aisignoff-ref` and `previous-ai-scale-until` are gone, use `aisignoff-version`. Commit trailers on `main` are never rewritten: the badges keep counting V0–V3 and `A-` trailers as before.
 
 ## How it fits together
 

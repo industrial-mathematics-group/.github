@@ -156,7 +156,7 @@ The first version had one verification axis, V0–V3:
 | V1, V2 | A2 |
 | V3 | H2 + A2 |
 
-`aisignoff migrate` converts existing `SIGNOFF.toml` files and inline tags. Commits declared with the trailer lines of earlier templates stay as they are and are counted in the badges: V0–V3 trailers are converted, and `A-` counts as A0. For other trailers on the previous scale, the repository's badge workflow needs the last such commit (`previous-ai-scale-until`, see SETUP.md); otherwise they show one level too low.
+aisignoff reads only the current levels. Convert old `SIGNOFF.toml` files (or `AIDECL.toml`) and inline tags once with `uvx aisignoff==1.0.0rc1 migrate`, the last release that does. Commits declared with the trailer lines of earlier templates stay as they are and are counted in the badges: V0–V3 trailers are converted, and `A-` counts as A0; other trailers on the previous scale are read on the current one.
 
 ### Responsibility
 

@@ -33,9 +33,9 @@ A repository's `SIGNOFF.toml` may contain a `[policy]` table that requires highe
 ## Declaring files (SIGNOFF.toml)
 
 `aisignoff` is installed. **Never edit `SIGNOFF.toml` by hand; use the tool**, which refuses invalid or
-below-policy declarations and leaves the file unchanged. A repository that hasn't been migrated yet has
-`AIDECL.toml` instead, the old name of `SIGNOFF.toml`: aisignoff reads and writes it the same way, so work with
-it as it is and don't rename it unless you're asked to.
+below-policy declarations and leaves the file unchanged. If aisignoff stops because the repository still has
+`AIDECL.toml` (the old name of `SIGNOFF.toml`) or an old `version`, say so in your reply and don't convert it yourself:
+a maintainer runs `uvx aisignoff==1.0.0rc1 migrate`.
 
 Declare with these commands:
 
