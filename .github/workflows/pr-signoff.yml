@@ -26,7 +26,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI; keep it at File-signoff's
         type: string
-        default: "1.0.0rc3"
+        default: "1.0.0rc5"
       allow-policy-change:
         description: >-
           Repository permissions of PR authors who may change [policy], exclude or [history] of SIGNOFF.toml
