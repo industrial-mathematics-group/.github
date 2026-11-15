@@ -4,8 +4,10 @@
 # "aisignoff lint --declare-from" reads the ticked questions of the PR template (or "Key: value" lines)
 # exactly as the merge commit's message will be read, and checks (see CONTRIBUTING.md and the aisignoff
 # documentation, "Checking the pull request description"):
-#   - the description on its own: G0-G3 (one), the highest ticked H0-H3 and A1-A3 (none: A0), the models
-#     for G1-G3, the reviewing model for A1-A3, G1-G3 need at least A1, G0 can't be A1
+#   - the description on its own: G0-G3 (one), H0-H3 ticked up to the level that was done, the highest ticked
+#     A0-A3 (none: A0), the models for G1-G3, the reviewing model for A1-A3 (for A2 and A3 a model that didn't
+#     write the change)
+#   - committed review reports: none lists a finding that needs a new review ([review] in SIGNOFF.toml)
 #   - the responsible human: the PR author, or the "Responsible person: @login" line for PRs opened by bots
 #   - the minimum levels of the [policy] in SIGNOFF.toml of the BASE branch
 #   - in repositories with SIGNOFF.toml, every file and (with [history]) every line of the merged result
@@ -26,7 +28,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI; keep it at File-signoff's
         type: string
-        default: "1.0.0rc5"
+        default: "1.0.0rc6"
       allow-policy-change:
         description: >-
           Repository permissions of PR authors who may change [policy], exclude or [history] of SIGNOFF.toml
@@ -136,7 +138,7 @@ jobs:
             const info = {
               G0: ['389826', 'Human-written'], G1: ['4063D8', 'AI-assisted'], G2: ['9558B2', 'AI-generated'], G3: ['CB3C33', 'AI-autonomous'],
               H0: ['C9D1E4', 'Human: plausibility check'], H1: ['9AA3B8', 'Human: tested'], H2: ['5A6378', 'Human: reviewed line by line'], H3: ['1B2238', 'Human: independently validated'],
-              A0: ['EDEDED', 'No AI review'], A1: ['F3E0C2', 'AI: self-check'], A2: ['E8B86D', 'AI: review by a new session'], A3: ['8A5A0B', 'AI: extensive review or benchmark by a different model'],
+              A0: ['EDEDED', 'No independent AI review'], A1: ['F3E0C2', 'AI: context-free check'], A2: ['E8B86D', 'AI: check by a different model'], A3: ['8A5A0B', 'AI: validated by a different model'],
             };
             for (const name of wanted) {
               const [color, description] = info[name.split(':')[1]];

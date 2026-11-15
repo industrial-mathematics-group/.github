@@ -141,7 +141,7 @@ checks them again and opens the pull request. Claude only suggests; the requeste
 @signoff + plain words ──► Claude: the form's answers ──► form checks + aisignoff (scratch copy of main)
    ▲   comment: questions, or what fails      │ missing, ambiguous or refused     │ complete
    └──────────────────────────────────────────┘                                   ▼
-          Signoff-Request: aisignoff, lint ──► branch + PR (G1, model and A1 ticked) ──► requester ticks H0–H3 ──► merge
+          Signoff-Request: aisignoff, lint ──► branch + PR (G1, model and A0 ticked) ──► requester ticks H0–H3 ──► merge
 ```
 
 - **Once for the organisation:** the organisation secret `ANTHROPIC_API_KEY` from
@@ -154,8 +154,8 @@ checks them again and opens the pull request. Claude only suggests; the requeste
   Signoff-Request caller.
 - **Model:** `claude-sonnet-5-5` by default (inputs `model` and `model-name`, change both together; `effort`).
   A request costs a few cents, mostly for the file list.
-- **The pull request** ticks **G1**, the model and **A1** instead of G0, since an AI turned the requester's words
-  into the answers and aisignoff checked the result, and says so above the diff. Requesters can correct the ticks.
+- **The pull request** ticks **G1**, the model and **A0** instead of G0, since an AI turned the requester's words
+  into the answers and no other AI session reviewed them, and says so above the diff. Requesters can correct the ticks.
 - **Security:** only people with write access are answered, and only their text, and the bots' own comments,
   reach the model; issue text by anyone else is left out. The model has no tools: it fills in a fixed JSON
   schema whose values are checked and passed to aisignoff as separate arguments, never to a shell. Its comments
@@ -216,7 +216,7 @@ In the caller workflow (`with:`):
 | `model` / `model-name` | `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Anthropic)` | A stronger model, e.g. `claude-opus-5-5` / `Claude Opus 5.5 (Anthropic)`. Change both together: `model-name` is what Claude writes into declarations. |
 | `node-version` | none | `"22"` for repositories that build with Node (the website) |
 | `max-turns` | `40` | Cost guard per run |
-| `aisignoff-version` | `1.0.0rc2` | The aisignoff release Claude uses; keep it at File-signoff's |
+| `aisignoff-version` | `1.0.0rc6` | The aisignoff release Claude uses; keep it at File-signoff's |
 | `guide-ref` | `main` | Pin the guide to a tag |
 
 Organisation-wide behaviour (levels, wording, PR declaration) is changed in `claude/ORG-GUIDE.md`; every
@@ -231,7 +231,7 @@ issue or comment with "@claude"
 reusable workflow: checkout ─► pip install aisignoff ─► ORG-GUIDE.md as ~/.claude/CLAUDE.md
    ▼
 Claude (as the Claude app): reads issue + repo CLAUDE.md, runs aisignoff annotate / lint or edits files,
-pushes branch claude/issue-<n>-…, posts "Create PR" link with the PR template pre-ticked (G3, model, A1)
+pushes branch claude/issue-<n>-…, posts "Create PR" link with the PR template pre-ticked (G3, model, A0)
    ▼
 person opens PR ─► ticks H0–H3 ─► pr-signoff / check green ─► merge
 ```
@@ -249,14 +249,14 @@ person opens PR ─► ticks H0–H3 ─► pr-signoff / check green ─► merg
 
 ## Minimum levels per repository
 
-Put a `[policy]` table into the repository's `SIGNOFF.toml`. You don't need any annotations for this, just `version = 3` and the policy. Both the PR check and `aisignoff lint` enforce it:
+Put a `[policy]` table into the repository's `SIGNOFF.toml`. You don't need any annotations for this, just `version = 4` and the policy. Both the PR check and `aisignoff lint` enforce it:
 
 ```toml
-version = 3
+version = 4
 
 [policy]
 "*" = { human = "H1" }
-G3  = { human = "H2", ai = "A2" }
+G3  = { human = "H2", ai = "A1" }
 ```
 
 The PR check reads the policy from the **base branch**, so a pull request can't lower the bar for itself.
@@ -272,7 +272,7 @@ The PR template no longer ends in trailer lines (`AI-Generation:`, `Reviewed-by:
 
 ## Repositories on older formats
 
-aisignoff reads only `SIGNOFF.toml` with `version = 3`. A repository that still has `AIDECL.toml` (the name up to aidecl 0.3.0), version 1 (V0–V3) or version 2 (A-, A0–A3) fails *PR-signoff*, and *File-signoff* from aisignoff 1.0.0rc2 on, until it is converted, once, with the last release that does it:
+aisignoff reads `SIGNOFF.toml` with `version = 4`, and `version = 3` as the AI review scale before 1.0.0rc6, taken over to today's, until the repository is converted with [`convert-to-version-4.py`](https://github.com/industrial-mathematics-group/aisignoff/blob/main/examples/convert-to-version-4.py) ([Upgrading](https://industrial-mathematics-group.github.io/aisignoff/migrating/)). Until then, the AI review boxes ticked in that repository's pull requests are also read on the old scale, so convert each repository with a `SIGNOFF.toml` right after this template changes. A repository that still has `AIDECL.toml` (the name up to aidecl 0.3.0), version 1 (V0–V3) or version 2 (A-, A0–A3) fails *PR-signoff*, and *File-signoff* from aisignoff 1.0.0rc2 on, until it is converted, once, with the last release that does it:
 
 ```bash
 uvx aisignoff==1.0.0rc1 migrate --dry-run

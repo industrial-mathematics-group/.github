@@ -19,7 +19,7 @@
 #
 # Signoff-Assistant (the @signoff assistant, Claude API) calls it with the answers it read from a
 # conversation (inputs request, requester, requester-id, assistant-model); they go through the same checks,
-# and the pull request ticks G1, the model and A1 instead of G0.
+# and the pull request ticks G1 and the model instead of G0 (A0: no other AI session reviewed it).
 #
 # Security: only people with write access get a branch. The form's text never reaches a shell: it is
 # read from the event file and passed to aisignoff as separate arguments. No code of the repository runs.
@@ -31,7 +31,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI; keep it at File-signoff's
         type: string
-        default: "1.0.0rc5"
+        default: "1.0.0rc6"
       dispatch-workflows:
         description: Without an app, workflow files to start on the request's branch, space-separated (the File-signoff caller), or ""
         type: string
@@ -357,14 +357,13 @@ jobs:
           summary += [f"**@{REQUESTER}: check the diff above, then tick your human review below** (at least H0; a "
                       "\"take responsibility\" box too, if the template has one). The AI declaration of this pull request "
                       "describes this change to `SIGNOFF.toml`, not the files it declares"
-                      + (f": G1 and A1, since {ASSISTANT} turned your words into the answers and aisignoff checked its "
-                         "result" if ASSISTANT else "") + ". The signoff check passes only once you have ticked.", ""]
+                      + (f": G1 and A0, since {ASSISTANT} turned your words into the answers and no other AI session "
+                         "reviewed them" if ASSISTANT else "") + ". The signoff check passes only once you have ticked.", ""]
           summary = "\n".join(summary)
 
           tpl = template()
           if tpl is None:
-              declared = (f"AI-Generation: G1\nAssisted-by: {ASSISTANT}\nHuman-Review: \nAI-Review: A1\n"
-                          f"AI-Reviewed-by: {ASSISTANT}, checked by aisignoff\n" if ASSISTANT else
+              declared = (f"AI-Generation: G1\nAssisted-by: {ASSISTANT}\nHuman-Review: \nAI-Review: A0\n" if ASSISTANT else
                           "AI-Generation: G0\nHuman-Review: \nAI-Review: A0\n")
               pr_body = (summary + f"\nCloses #{NUMBER}\n\n{declared}"
                          f"Reviewed-by: {responsible or REQUESTER}\n\nResponsible person: @{REQUESTER}\n")
@@ -376,12 +375,11 @@ jobs:
                                         count=1, flags=re.M | re.I)
               if not closes:
                   pr_body = pr_body.replace(summary, summary + f"\nCloses #{NUMBER}\n", 1)
-              if not ASSISTANT:
-                  pr_body = re.sub(r"^([-*]) \[ \] \*\*G0\*\*", r"\1 [x] **G0**", pr_body, count=1, flags=re.M)
-              else:   # an AI turned the requester's words into the answers: G1, its model, A1
-                  for level in ("G1", "A1"):
-                      pr_body = re.sub(rf"^([-*]) \[ \] \*\*{level}\*\*", rf"\1 [x] **{level}**", pr_body,
-                                       count=1, flags=re.M)
+              # no AI session reviewed the change: A0, where the template has a box for it
+              for level in ("G1" if ASSISTANT else "G0", "A0"):
+                  pr_body = re.sub(rf"^([-*]) \[ \] \*\*{level}\*\*", rf"\1 [x] **{level}**", pr_body,
+                                   count=1, flags=re.M)
+              if ASSISTANT:   # an AI turned the requester's words into the answers: G1 and its model
                   words = set(re.findall(r"\w+", ASSISTANT.lower()))
                   family = next((m for m in re.finditer(r"^([-*]) \[ \] \*\*([^*]+)\*\*", pr_body, re.M)
                                  if not re.fullmatch(r"[GHA][0-3]|Other:?", m.group(2).strip())

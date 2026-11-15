@@ -8,7 +8,9 @@
 # Older commits declared with trailer lines (AI-Generation: ...) are read from those.
 # Commit messages can't be rewritten, so older commits keep counting as they were declared:
 # the V0-V3 trailers of the first policy are mapped conservatively (unknown parts shown as "unknown"),
-# and "AI-Review: A-" of the second one counts as A0.
+# and "AI-Review: A-" of the second one counts as A0. The template before aisignoff 1.0.0rc6 had another
+# AI review scale (A1 self-check, A2 new session): its ticks are recognised by the wording of its A1 box
+# and counted on today's scale (A0 and A1). Trailer lines are counted as written.
 # Only commits on the first-parent history that carry a declaration are counted
 # (commits from before the policy are ignored; the count is shown in the job summary).
 name: Signoff-Badges
@@ -63,7 +65,7 @@ jobs:
               no ticked G question. Like the PR check, it reads only top-level boxes outside HTML
               comments and fenced code blocks. The check made sure the ticks were valid at merge."""
               text = re.sub(r"<!--.*?(-->|\Z)", "", msg, flags=re.S)
-              ticks, fence = {}, None
+              ticks, fence, old_scale = {}, None, False
               for line in text.splitlines():
                   f = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
                   if fence:
@@ -76,6 +78,8 @@ jobs:
                   m = re.match(r"^[-*] \[([ xX])\] \*\*([GHA][0-3])\*\*", line)
                   if m:
                       ticks[m.group(2)] = m.group(1) != " "
+                      # the A1 box of the template before the AI review scale of aisignoff 1.0.0rc6
+                      old_scale = old_scale or (m.group(2) == "A1" and bool(re.search(r"its own work|self-check", line, re.I)))
               g = [k for k in ("G0", "G1", "G2", "G3") if ticks.get(k)]
               if len(g) != 1:
                   return None
@@ -88,6 +92,8 @@ jobs:
               for k in ("A1", "A2", "A3"):
                   if ticks.get(k):
                       a = k
+              if old_scale:  # there, A1 was the self-check (no review now) and A2 a new session (A1 now)
+                  a = {"A1": "A0", "A2": "A1"}.get(a, a)
               return g[0], h, a
 
           gen, hum, air = Counter(), Counter(), Counter()

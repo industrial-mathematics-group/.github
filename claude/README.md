@@ -46,7 +46,7 @@ If the files aren't in the repository yet:
 3. In the pull request, write a comment such as:
 
    > @claude please declare these files: G2, written with Claude Opus 5.5, I reproduced the key results (H1),
-   > the same session checked its work (A1). Responsible: Jane Doe.
+   > no other AI session reviewed it (A0). Responsible: Jane Doe.
 
 Claude adds the declaration to your pull request.
 
@@ -55,7 +55,7 @@ Claude adds the declaration to your pull request.
 - **Your answers** describe *your files*: how much AI helped make them and how you checked them.
   Claude only writes down what you said.
 - **The ticks in the pull request** describe *Claude's change* to the repository (for example the edit to
-  `SIGNOFF.toml`). Claude ticks its own part (G3, its model, A1); you tick how you checked it (H).
+  `SIGNOFF.toml`). Claude ticks its own part (G3, its model, A0); you tick how you checked it (H).
 
 If you're unsure which level fits, see the [AI policy](https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#ai-assisted-contributions),
 or ask Claude in the issue.

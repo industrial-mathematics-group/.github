@@ -32,13 +32,14 @@ AI models that wrote parts of it (G1-G3, tick all that apply):
 - [ ] **GPT Terra** (OpenAI)
 - [ ] **Other:** 
 
-Human review (at least H0 is required; the levels build on each other):
+Human review (at least H0 is required; the levels build on each other: tick every level up to the one you did):
 - [ ] **H0** I checked the result as a whole: it does what was asked, runs, and the output is plausible
 - [ ] **H1** I ran the tests or reproduced the key results myself, and read the important parts
 - [ ] **H2** I read every changed line, understand it, and checked edge cases
 - [ ] **H3** I validated it independently: new tests, a reference solution or method, or a second person's review
 
-AI review (leave all unticked for A0; AI-written changes need at least A1; the highest ticked one counts):
-- [ ] **A1** The AI that wrote the change checked its own work: it ran the tests and reviewed the result (not for human-written changes, G0)
-- [ ] **A2** A new AI session, without the generating conversation, reviewed the final change and ran the tests. Model, if not one of the above: 
-- [ ] **A3** A different model of similar or higher capability reviewed it extensively or benchmarked it: new tests, reference methods or solutions. Model: 
+AI review (only review that is independent of the session that wrote the change; the highest ticked one counts):
+- [ ] **A0** No independent AI review: none, or only the checks of the session that wrote the change
+- [ ] **A1** A new AI session, without the generating conversation, checked the final change and ran the tests. Model, if not one of the above: 
+- [ ] **A2** A different, capable model did that check and committed one review report. Model and report: 
+- [ ] **A3** A different, capable model validated it with new evidence (new tests, benchmarks, another method), committed with the report. Model and report: 

@@ -22,6 +22,6 @@ jobs:
     with:
       app-id: ${{ vars.SIGNOFF_APP_ID }}   # the organisation's signoff bot app; empty: github-actions[bot]
     #   dispatch-workflows: file-signoff.yml   # without the app: the file name of your File-signoff workflow
-    #   aisignoff-version: "1.0.0rc5"          # keep it at File-signoff's
+    #   aisignoff-version: "1.0.0rc6"          # keep it at File-signoff's
     secrets:
       app-private-key: ${{ secrets.SIGNOFF_APP_PRIVATE_KEY }}

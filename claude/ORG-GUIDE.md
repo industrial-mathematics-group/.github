@@ -24,10 +24,12 @@ Follow it; this guide only says how to apply it.
 |---|---|
 | Generation | G0 human · G1 AI-assisted · G2 AI-generated · G3 AI-autonomous |
 | Human review | H0 plausibility check · H1 tested / reproduced · H2 read line by line · H3 independently validated |
-| AI review | A0 none · A1 self-check by the generating session · A2 new session · A3 extensive review or benchmark by a different model |
+| AI review | A0 no independent AI review (the generating session's own checks don't count) · A1 context-free check by a new session · A2 that check by a different, capable model, with one committed review report · A3 validated by a different, capable model with new evidence, committed with the report |
 
-Rules: G1–G3 need `Assisted-by` and at least A1. G0 has no `Assisted-by` and can't be A1 (any AI review of human
-work is A2 or A3). A1–A3 need `AI-Reviewed-by`. Every file needs `Reviewed-by`, the responsible human.
+Rules: G1–G3 need `Assisted-by`; G0 has none. A1–A3 need `AI-Reviewed-by`, and A0 has none: a self-check by the
+session that wrote the content is A0. For A2 and A3 the reviewer is a model that is not in `Assisted-by` (another
+model of the same vendor counts, another version of the same model doesn't). Every file needs `Reviewed-by`, the
+responsible human.
 A repository's `SIGNOFF.toml` may contain a `[policy]` table that requires higher minimums.
 
 ## Declaring files (SIGNOFF.toml)
@@ -43,7 +45,7 @@ Declare with these commands:
 aisignoff init -g G0 -H H2 -a A0 --reviewed-by "Jane Doe"     # only if the repository has no SIGNOFF.toml yet
 aisignoff annotate results/ -g G2 -H H1 -a A1 \
     --assisted-by "Claude Opus 5.5 (Anthropic)" \
-    --ai-reviewed-by "Claude Opus 5.5 (Anthropic), self-check by the generating session" \
+    --ai-reviewed-by "Claude Opus 5.5 (Anthropic), new session without the generating conversation" \
     --reviewed-by "Jane Doe"
 aisignoff lint
 aisignoff report --files       # to show the person what is declared now
@@ -55,7 +57,7 @@ aisignoff report --files       # to show the person what is declared now
   they give go into `--assisted-by`; the reviewer and method go into `--ai-reviewed-by`, followed by the same
   wording the policy uses (e.g. `"..., new session"`).
 - `Reviewed-by` is the full name the person gave, never yours and never a GitHub bot.
-- If a file's declaration in the answers is impossible (e.g. G2 without a model, G0 with A1), explain the rule
+- If a file's declaration in the answers is impossible (e.g. G2 without a model, A1 with only a self-check), explain the rule
   in one sentence and ask which they meant.
 - If there is no `SIGNOFF.toml` yet: ask what the default for the rest of the repository should be before you run
   `aisignoff init`, unless the person already said so.
@@ -65,8 +67,8 @@ aisignoff report --files       # to show the person what is declared now
 ### Files you write yourself
 
 When you create or change files in a repository that has a `SIGNOFF.toml` (for example a website entry), declare
-them too: `-g G3 --assisted-by "<your model name>" -a A1 --ai-reviewed-by "<your model name>, self-check by the
-generating session" -H TODO`. `-H TODO` leaves the human review and `Reviewed-by` open on purpose; tell the person
+them too: `-g G3 --assisted-by "<your model name>" -a A0 -H TODO` (your own checks are part of writing it, not an
+AI review). `-H TODO` leaves the human review and `Reviewed-by` open on purpose; tell the person
 to tick their review level in the PR and then write `@claude finish the declaration`. When they do, read the
 ticked H level and the PR author from the PR, and replace the TODOs with `aisignoff annotate` (their full name if
 known, otherwise their GitHub login).
@@ -86,7 +88,8 @@ as below.** Use the repository's own template (`.github/PULL_REQUEST_TEMPLATE.md
 - write a short "What does this PR change?" and `Closes #<issue>`;
 - under Generation, tick **G3** (you produced this change end to end), and under AI models tick your model
   family (e.g. **Claude Sonnet**);
-- under AI review, tick **A1** (you checked your own work: ran `aisignoff lint`, the build, or the tests);
+- under AI review, tick **A0**: running `aisignoff lint`, the build or the tests on your own work is part of
+  writing it, not an independent review;
 - **leave H0–H3 unticked.** Only the human can tick them; the check stays red until they do, which is
   intended;
 - keep the HTML comments of the template; leave other checklist items unticked unless you did them.
