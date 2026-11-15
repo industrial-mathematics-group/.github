@@ -17,6 +17,9 @@ anywhere in a comment starts Claude, so only use it when you mean it.
 To declare how files were made (AI levels) you don't need Claude: the issue form
 **Signoff: declare or attest files** (*Issues → New issue*) prepares the pull request without AI, from your
 answers alone.
+Where the maintainers have set it up, you can also write `@signoff` and say in your own words what to record
+(which files, how much AI wrote and which model, how you checked them); the signoff assistant fills in the
+form for you, asks if something is missing, and opens the same pull request for you to review.
 
 ## What happens next
 

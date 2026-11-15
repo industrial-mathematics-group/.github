@@ -1,0 +1,6 @@
+{
+  "name": "Signoff-Assistant (@signoff)",
+  "description": "Turns \"@signoff\" and a request in plain words into the signoff request form's answers with the Claude API, asks for what is missing, and hands them to Signoff-Request. A human reviews and merges the pull request.",
+  "iconName": "octicon comment-discussion",
+  "filePatterns": ["SIGNOFF.toml$"]
+}

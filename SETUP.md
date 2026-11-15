@@ -11,6 +11,7 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/workflows/signoff-badges.yml` | Reusable workflow *Signoff-Badges*: publishes the README badges of the PR declarations |
 | `.github/workflows/file-signoff.yml` | Reusable workflow *File-signoff*: file-level declarations with aisignoff (lint + badges) |
 | `.github/workflows/signoff-request.yml`, `.github/ISSUE_TEMPLATE/signoff-request.yml` | Reusable workflow *Signoff-Request* and its issue form: a `SIGNOFF.toml` change from an issue, without AI |
+| `.github/workflows/signoff-assistant.yml` | Reusable workflow *Signoff-Assistant*: the `@signoff` assistant, which turns a request in plain words into the form's answers with the Claude API and hands them to Signoff-Request |
 | `.github/workflows/claude.yml`, `claude/` | The @claude assistant (see [below](#the-claude-assistant)) |
 | `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
@@ -82,6 +83,7 @@ For repositories with results, data or papers, or with casual single-commit uplo
 
 3. Optionally require the status check **`file-signoff / lint`** on `main`.
 4. Optionally add **Signoff-Request** (*Actions → New workflow*), see [below](#signoff-requests-from-issues).
+5. Optionally add **Signoff-Assistant (@signoff)** next to it, see [below](#the-signoff-assistant).
 
 Both systems can run side by side: the PR check and its badges describe changes, aisignoff describes files. They use different badge files on the same `badges` branch.
 
@@ -123,6 +125,42 @@ issue form ──► Signoff-Request: aisignoff annotate / attest, lint ──�
   arguments, never to a shell, and no code from the repository runs.
 - Repositories with their own `.github/ISSUE_TEMPLATE/` folder don't see the organisation's forms: copy
   `signoff-request.yml` into it. Optionally create a label `signoff-request`, which the form applies if it exists.
+
+### The @signoff assistant
+
+Lets group members ask for the same pull request in their own words instead of filling in the form. They write
+`@signoff` in a new issue or a comment, e.g. "@signoff I wrote results/convergence/ with Claude Opus 5.5, which
+also checked its work; I reran the study and read the important parts." *Signoff-Assistant* sends the
+conversation, the repository's file list, `SIGNOFF.toml` and the recent commits to the Claude API, which fills in
+the form's answers. They are checked like the form's, and with `aisignoff annotate` / `attest` and `lint` on a
+scratch copy of `main`; what fails goes back to Claude once, and what is still missing or ambiguous becomes
+questions in a comment, answered with another `@signoff` comment. Complete answers go to *Signoff-Request*, which
+checks them again and opens the pull request. Claude only suggests; the requester reviews, ticks and merges:
+
+```
+@signoff + plain words ──► Claude: the form's answers ──► form checks + aisignoff (scratch copy of main)
+   ▲   comment: questions, or what fails      │ missing, ambiguous or refused     │ complete
+   └──────────────────────────────────────────┘                                   ▼
+          Signoff-Request: aisignoff, lint ──► branch + PR (G1, model and A1 ticked) ──► requester ticks H0–H3 ──► merge
+```
+
+- **Once for the organisation:** the organisation secret `ANTHROPIC_API_KEY` from
+  [the @claude assistant](#once-for-the-organisation) (step 2 and 3; an API key in a Console workspace with a
+  spend limit). Give the repositories with Signoff-Assistant access to it. The assistant reads no other secret
+  but the bot app's, and the key is only in the step that calls the model.
+- **Per repository:** *Signoff-Request* first, then *Actions → New workflow* → **Signoff-Assistant (@signoff)**.
+  Without access to the secret, `@signoff` gets a comment that points to the form, and nothing else happens.
+  If your File-signoff workflow file isn't called `file-signoff.yml`, set `dispatch-workflows` as in the
+  Signoff-Request caller.
+- **Model:** `claude-sonnet-5-5` by default (inputs `model` and `model-name`, change both together; `effort`).
+  A request costs a few cents, mostly for the file list.
+- **The pull request** ticks **G1**, the model and **A1** instead of G0, since an AI turned the requester's words
+  into the answers and aisignoff checked the result, and says so above the diff. Requesters can correct the ticks.
+- **Security:** only people with write access are answered, and only their text, and the bots' own comments,
+  reach the model; issue text by anyone else is left out. The model has no tools: it fills in a fixed JSON
+  schema whose values are checked and passed to aisignoff as separate arguments, never to a shell. Its comments
+  can't mention other people or carry the workflows' hidden markers. No code of the repository runs.
+- Issues made with the form and pull requests are left alone; edited comments don't start it again (write a new one).
 
 ## The @claude assistant
 

@@ -17,6 +17,10 @@
 # and PR-signoff runs once the requester edits the description; it needs "Allow GitHub Actions to create
 # and approve pull requests" (SETUP.md, section 1). An app's pull requests start the checks as usual.
 #
+# Signoff-Assistant (the @signoff assistant, Claude API) calls it with the answers it read from a
+# conversation (inputs request, requester, requester-id, assistant-model); they go through the same checks,
+# and the pull request ticks G1, the model and A1 instead of G0.
+#
 # Security: only people with write access get a branch. The form's text never reaches a shell: it is
 # read from the event file and passed to aisignoff as separate arguments. No code of the repository runs.
 name: Signoff-Request
@@ -27,13 +31,31 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI; keep it at File-signoff's
         type: string
-        default: "1.0.0rc3"
+        default: "1.0.0rc5"
       dispatch-workflows:
         description: Without an app, workflow files to start on the request's branch, space-separated (the File-signoff caller), or ""
         type: string
         default: file-signoff.yml
       app-id:
         description: ID of a GitHub App to act as, instead of github-actions[bot] (with the secret app-private-key)
+        type: string
+        default: ""
+      request:
+        description: >-
+          From Signoff-Assistant: the answers in the issue form's Markdown ("### What should be recorded?" ...),
+          read instead of the issue's text; "" for the form
+        type: string
+        default: ""
+      requester:
+        description: From Signoff-Assistant, with request; the GitHub login of the person who asked
+        type: string
+        default: ""
+      requester-id:
+        description: From Signoff-Assistant, with request; their numeric GitHub user ID (for Co-authored-by)
+        type: string
+        default: ""
+      assistant-model:
+        description: From Signoff-Assistant, with request; the model that read the answers, as it is declared
         type: string
         default: ""
     secrets:
@@ -77,6 +99,10 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app.outputs.token || github.token }}
           APP_SLUG: ${{ steps.app.outputs.app-slug }}
           DISPATCH_WORKFLOWS: ${{ inputs.dispatch-workflows }}
+          SIGNOFF_REQUEST: ${{ inputs.request }}
+          SIGNOFF_REQUESTER: ${{ inputs.requester }}
+          SIGNOFF_REQUESTER_ID: ${{ inputs.requester-id }}
+          SIGNOFF_ASSISTANT: ${{ inputs.assistant-model }}
         run: |
           python3 - <<'PY'
           import base64, json, os, re, subprocess, sys, urllib.error, urllib.parse, urllib.request
@@ -92,7 +118,11 @@ jobs:
           DRY_RUN = os.environ.get("SIGNOFF_DRY_RUN") == "1"   # for testing outside Actions: print the API calls
           ISSUE = EVENT["issue"]
           NUMBER = ISSUE["number"]
-          REQUESTER = ISSUE["user"]["login"]
+          # Called by the @signoff assistant: the answers it read from the conversation, and who asked.
+          ASSISTANT = os.environ.get("SIGNOFF_ASSISTANT", "")
+          ASKED = os.environ.get("SIGNOFF_REQUEST", "")
+          REQUESTER = os.environ.get("SIGNOFF_REQUESTER") or ISSUE["user"]["login"]
+          REQUESTER_ID = os.environ.get("SIGNOFF_REQUESTER_ID") or ISSUE["user"]["id"]
           DEFAULT_BRANCH = EVENT["repository"]["default_branch"]
           BRANCH = f"signoff-request/issue-{NUMBER}"
           MARKER = "<!-- aisignoff-signoff-request -->"
@@ -143,9 +173,9 @@ jobs:
 
 
           def comment(text):
-              """One comment per issue, updated on each run."""
+              """One comment per issue, updated on each run; a new one in a conversation with the assistant."""
               body = f"{MARKER}\n{text}"
-              for c in api("GET", f"/repos/{REPO}/issues/{NUMBER}/comments?per_page=100") or []:
+              for c in [] if ASKED else api("GET", f"/repos/{REPO}/issues/{NUMBER}/comments?per_page=100") or []:
                   if MARKER in (c.get("body") or "") and c["user"]["type"] == "Bot":
                       api("PATCH", f"/repos/{REPO}/issues/comments/{c['id']}", {"body": body})
                       return
@@ -158,8 +188,9 @@ jobs:
 
 
           def reject(problems, output=""):
-              lines = ["**The request couldn't be turned into a pull request.** Edit the issue to fix this; "
-                       "the bot runs again on each edit.", ""] + [f"- {p}" for p in problems]
+              again = ("Reply with `@signoff` and what to change." if ASKED else
+                       "Edit the issue to fix this; the bot runs again on each edit.")
+              lines = [f"**The request couldn't be turned into a pull request.** {again}", ""] + [f"- {p}" for p in problems]
               if output:
                   lines += ["", "<details><summary>aisignoff output</summary>", "", fence(output), "", "</details>"]
               comment("\n".join(lines))
@@ -175,7 +206,7 @@ jobs:
               sys.exit(0)
 
           # ---------------------------------------------------------------- read the form
-          body = (ISSUE.get("body") or "").replace("\r\n", "\n")
+          body = (ASKED or ISSUE.get("body") or "").replace("\r\n", "\n")
           fields, current = {}, None
           for line in body.split("\n"):
               m = re.match(r"^### (.+?)\s*$", line)
@@ -273,7 +304,7 @@ jobs:
           what = {"annotate": "Declare " + ", ".join(paths), "attest": "Attest the review of " + ", ".join(paths),
                   "commit": f"Correct the declaration of {commit[:12]}"}[kind]
           title = (what if len(what) <= 60 else what[:57] + "…") + f" (signoff request #{NUMBER})"
-          email = f"{ISSUE['user']['id']}+{REQUESTER}@users.noreply.github.com"
+          email = f"{REQUESTER_ID}+{REQUESTER}@users.noreply.github.com"
           run("git", "add", "-A")
           if APP_SLUG:   # commit as the app's bot account, so the commit shows its name and avatar
               bot = f"{APP_SLUG}[bot]"
@@ -306,10 +337,18 @@ jobs:
               return None
 
 
-          summary = [
-              f"Records signoff request #{NUMBER} by @{REQUESTER} in `SIGNOFF.toml`, written by the signoff bot "
-              "from the issue form (no AI involved):", "", fence(diff, "diff"), "",
-          ]
+          if ASSISTANT:
+              summary = [
+                  f"Records signoff request #{NUMBER} by @{REQUESTER} in `SIGNOFF.toml`. The @signoff assistant "
+                  f"({ASSISTANT}) read the answers from the conversation; the signoff bot checked them and wrote "
+                  "them with aisignoff. **An AI can misread: check every path, level and name.**", "",
+                  fence(diff, "diff"), "",
+              ]
+          else:
+              summary = [
+                  f"Records signoff request #{NUMBER} by @{REQUESTER} in `SIGNOFF.toml`, written by the signoff bot "
+                  "from the issue form (no AI involved):", "", fence(diff, "diff"), "",
+              ]
           if value(F_NOTES):
               summary += ["Notes from the request:", "", "> " + value(F_NOTES).replace("\n", "\n> "), ""]
           if lint_after.returncode:
@@ -317,13 +356,17 @@ jobs:
                           fence((lint_after.stdout + lint_after.stderr)[-3000:]), ""]
           summary += [f"**@{REQUESTER}: check the diff above, then tick your human review below** (at least H0; a "
                       "\"take responsibility\" box too, if the template has one). The AI declaration of this pull request "
-                      "describes this change to `SIGNOFF.toml`, not the files it declares. The signoff check passes only once "
-                      "you have ticked.", ""]
+                      "describes this change to `SIGNOFF.toml`, not the files it declares"
+                      + (f": G1 and A1, since {ASSISTANT} turned your words into the answers and aisignoff checked its "
+                         "result" if ASSISTANT else "") + ". The signoff check passes only once you have ticked.", ""]
           summary = "\n".join(summary)
 
           tpl = template()
           if tpl is None:
-              pr_body = (summary + f"\nCloses #{NUMBER}\n\nAI-Generation: G0\nHuman-Review: \nAI-Review: A0\n"
+              declared = (f"AI-Generation: G1\nAssisted-by: {ASSISTANT}\nHuman-Review: \nAI-Review: A1\n"
+                          f"AI-Reviewed-by: {ASSISTANT}, checked by aisignoff\n" if ASSISTANT else
+                          "AI-Generation: G0\nHuman-Review: \nAI-Review: A0\n")
+              pr_body = (summary + f"\nCloses #{NUMBER}\n\n{declared}"
                          f"Reviewed-by: {responsible or REQUESTER}\n\nResponsible person: @{REQUESTER}\n")
           else:
               tpl = tpl.replace("\r\n", "\n")
@@ -333,7 +376,21 @@ jobs:
                                         count=1, flags=re.M | re.I)
               if not closes:
                   pr_body = pr_body.replace(summary, summary + f"\nCloses #{NUMBER}\n", 1)
-              pr_body = re.sub(r"^([-*]) \[ \] \*\*G0\*\*", r"\1 [x] **G0**", pr_body, count=1, flags=re.M)
+              if not ASSISTANT:
+                  pr_body = re.sub(r"^([-*]) \[ \] \*\*G0\*\*", r"\1 [x] **G0**", pr_body, count=1, flags=re.M)
+              else:   # an AI turned the requester's words into the answers: G1, its model, A1
+                  for level in ("G1", "A1"):
+                      pr_body = re.sub(rf"^([-*]) \[ \] \*\*{level}\*\*", rf"\1 [x] **{level}**", pr_body,
+                                       count=1, flags=re.M)
+                  words = set(re.findall(r"\w+", ASSISTANT.lower()))
+                  family = next((m for m in re.finditer(r"^([-*]) \[ \] \*\*([^*]+)\*\*", pr_body, re.M)
+                                 if not re.fullmatch(r"[GHA][0-3]|Other:?", m.group(2).strip())
+                                 and set(re.findall(r"\w+", m.group(2).lower())) <= words), None)
+                  if family:
+                      pr_body = pr_body[:family.start()] + family.group(0).replace("[ ]", "[x]", 1) + pr_body[family.end():]
+                  else:
+                      pr_body = re.sub(r"^([-*]) \[ \] \*\*Other:\*\*[ \t]*$", lambda m: f"{m.group(1)} [x] **Other:** "
+                                       f"{ASSISTANT}", pr_body, count=1, flags=re.M)
               # who is responsible for a pull request opened by a bot (read by the PR-signoff check)
               who = f"Responsible person: @{REQUESTER}"
               m = re.search(r"^#+ *AI declaration.*$", pr_body, re.M | re.I)
