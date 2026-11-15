@@ -87,8 +87,8 @@ as below.** Use the repository's own template (`.github/PULL_REQUEST_TEMPLATE.md
 - under Generation, tick **G3** (you produced this change end to end), and under AI models tick your model
   family (e.g. **Claude Sonnet**);
 - under AI review, tick **A1** (you checked your own work: ran `aisignoff lint`, the build, or the tests);
-- **leave H0–H3 and "I take responsibility" unticked.** Only the human can tick them; the check stays red until
-  they do, which is intended;
+- **leave H0–H3 unticked.** Only the human can tick them; the check stays red until they do, which is
+  intended;
 - keep the HTML comments of the template; leave other checklist items unticked unless you did them.
 
 This declares *your change* (for example the edit to `SIGNOFF.toml`). The declarations *inside* `SIGNOFF.toml`

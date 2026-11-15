@@ -8,12 +8,12 @@ Closes #
 
 - [ ] Tests pass locally and new behaviour is covered by tests
 - [ ] Documentation and docstrings are updated where needed
-- [ ] I take responsibility for this change, however it was created
 
 ## AI declaration
 
 <!-- Tick what applies; the check derives the whole declaration from the ticks, and
-     the person who opened the PR is the responsible human. Keep the questions as they are.
+     the person who opened the PR is the responsible human for whatever created the change.
+     Keep the questions as they are.
      Opened by a bot or app account? Add a line "Responsible person: @login" below this comment.
      See CONTRIBUTING.md, "AI-assisted contributions". -->
 

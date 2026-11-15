@@ -7,7 +7,7 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `profile/README.md` | Organisation front page on GitHub |
 | `.github/CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` | Default community files for every repository without its own |
 | `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/` | Default PR and issue templates |
-| `.github/workflows/pr-signoff.yml` | Reusable workflow *PR-signoff*: checks the AI declaration of a PR, sets labels |
+| `.github/workflows/pr-signoff.yml` | Reusable workflow *PR-signoff*: checks the AI declaration of a PR with aisignoff, sets labels |
 | `.github/workflows/signoff-badges.yml` | Reusable workflow *Signoff-Badges*: publishes the README badges of the PR declarations |
 | `.github/workflows/file-signoff.yml` | Reusable workflow *File-signoff*: file-level declarations with aisignoff (lint + badges) |
 | `.github/workflows/signoff-request.yml`, `.github/ISSUE_TEMPLATE/signoff-request.yml` | Reusable workflow *Signoff-Request* and its issue form: a `SIGNOFF.toml` change from an issue, without AI |
@@ -45,6 +45,24 @@ This repository must be **public** for the defaults and the reusable workflows t
 
 The three dynamic badges show "no declarations yet" until the first declared PR is merged. Run the *Signoff-Badges* workflow once by hand (*Actions → Signoff-Badges → Run workflow*) to create the `badges` branch.
 
+## What PR-signoff checks
+
+*PR-signoff* is aisignoff's check of a pull request before the merge (`aisignoff lint --declare-from`, pinned by
+the input `aisignoff-version`): one parser and one set of rules for the PR template, the merge commit and
+`SIGNOFF.toml`.
+
+- **Every repository:** the ticked AI declaration must be complete on its own: the levels, the models (G1–G3),
+  the reviewing model (A1–A3) and the responsible human (the author, or `Responsible person: @login` for PRs
+  opened by bots). In a repository without `SIGNOFF.toml`, that's all it checks.
+- **With `SIGNOFF.toml`:** also every file, and with `[history]` every line, of GitHub's merge preview, with the
+  `[policy]` of the base branch, so a PR can't lower the bar for itself. A PR that changes `[policy]`, `exclude`
+  or `[history]` (or removes `SIGNOFF.toml`) fails unless its author has one of the permissions in the input
+  `allow-policy-change` (default `admin,maintain`); maintainers can also commit such changes to `main` directly.
+  With this, *File-signoff* on pull requests checks the same files again; keep it for pushes, merge queues and
+  badges.
+- The repository callers don't change: the check is still `pr-signoff / check`, triggered by
+  `pull_request_target` (also on `edited`), and still sets the `ai:G*`, `human:H*` and `ai-review:A*` labels.
+
 ## Optional: file-level declarations (aisignoff)
 
 For repositories with results, data or papers, or with casual single-commit uploads:
@@ -75,7 +93,7 @@ from the PR template. Nothing is merged without a human:
 issue form ──► Signoff-Request: aisignoff annotate / attest, lint ──► branch + PR (G0 ticked, "Responsible person: @requester")
    ▲  comment: what to fix                                                   │
    └──────── edit the issue: runs again, updates the PR                       ▼
-                       requester reviews Files changed, ticks H0–H3 and "I take responsibility" ──► pr-signoff / check ──► merge
+                       requester reviews Files changed, ticks H0–H3 ──► pr-signoff / check ──► merge
 ```
 
 - **Per repository:** *Actions → New workflow* → **Signoff-Request**. It needs *File-signoff* and a `SIGNOFF.toml`.
@@ -94,10 +112,9 @@ issue form ──► Signoff-Request: aisignoff annotate / attest, lint ──�
   (`workflow_dispatch`), and *PR-signoff* runs once the requester edits the description to tick their review;
   until then a required `pr-signoff / check` stays pending, which is the intended gate. These pull requests are
   opened by `github-actions[bot]`, but unlike CompatHelper's they are not exempt from PR-signoff.
-- **A pull request that changes only `SIGNOFF.toml`** is checked like any other: *PR-signoff* reads only the
-  description, never the changed files, so it needs the ticks (G0 for the bot's change, the requester's H level
-  and responsibility, and the repository's `[policy]`). *File-signoff* never declares `SIGNOFF.toml` itself; it
-  checks that the new declarations are valid. Nothing to configure.
+- **A pull request that changes only `SIGNOFF.toml`** is checked like any other: *PR-signoff* requires a complete
+  description for every pull request (G0 for the bot's change, the requester's H level, and the `[policy]` of
+  `main`), whatever it changes. Nothing to configure.
 - Only people with write access get a branch; others get a comment. The form's text is passed to aisignoff as
   arguments, never to a shell, and no code from the repository runs.
 - Repositories with their own `.github/ISSUE_TEMPLATE/` folder don't see the organisation's forms: copy
@@ -174,7 +191,7 @@ reusable workflow: checkout ─► pip install aisignoff ─► ORG-GUIDE.md as 
 Claude (as the Claude app): reads issue + repo CLAUDE.md, runs aisignoff annotate / lint or edits files,
 pushes branch claude/issue-<n>-…, posts "Create PR" link with the PR template pre-ticked (G3, model, A1)
    ▼
-person opens PR ─► ticks H0–H3 and "I take responsibility" ─► pr-signoff / check green ─► merge
+person opens PR ─► ticks H0–H3 ─► pr-signoff / check green ─► merge
 ```
 
 ### Costs and safety
@@ -228,7 +245,7 @@ Fill in the `TODO`s it leaves, run `aisignoff lint`, and switch README badges fr
 ```
 feature branch ──(anything goes)──► PR into main
                                      │  template asks for the declaration
-                                     │  "pr-signoff / check" validates it, sets ai:G* / human:H* / ai-review:A* labels
+                                     │  "pr-signoff / check" validates it with aisignoff, sets ai:G* / human:H* / ai-review:A* labels
                                      ▼
                               merge commit ──► "title and description" on main, with the ticks
                                                  │

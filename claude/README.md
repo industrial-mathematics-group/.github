@@ -25,10 +25,10 @@ answers alone.
 3. When it's done, its comment says what it changed and has a **Create PR** link.
 4. Click the link and then **Create pull request**. The description is already filled in.
 5. In the pull request, look at *Files changed*. Then tick in the description:
-   - your **human review** level (H0–H3) for Claude's change, i.e. how carefully you checked what Claude did, and
-   - **I take responsibility for this change**.
+   - your **human review** level (H0–H3) for Claude's change, i.e. how carefully you checked what Claude did.
+     By ticking it you take responsibility for the change.
 
-   The *PR-signoff* check turns green once these are ticked.
+   The *PR-signoff* check turns green once it is ticked.
 6. Merge it (*Merge pull request*). That's it.
 
 Want something changed? Comment `@claude ...` in the pull request, e.g. `@claude also include figures/fig4.pdf`.

@@ -7,7 +7,7 @@
 #      "aisignoff lint" passed before and fails after
 #   3. opens a pull request from the PR template: the change and "Closes #<n>" under "What does this PR
 #      change?", G0 ticked (the bot is deterministic) and "Responsible person: @<requester>". The requester
-#      ticks their review and "I take responsibility"; until then PR-signoff fails
+#      ticks their human review; until then PR-signoff fails
 #   4. comments on the issue: the pull request, or what to fix. Editing the issue runs it again and
 #      updates the pull request (an unchanged result leaves it alone)
 #
@@ -27,7 +27,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI; keep it at File-signoff's
         type: string
-        default: "1.0.0rc2"
+        default: "1.0.0rc3"
       dispatch-workflows:
         description: Without an app, workflow files to start on the request's branch, space-separated (the File-signoff caller), or ""
         type: string
@@ -315,15 +315,16 @@ jobs:
           if lint_after.returncode:
               summary += ["`aisignoff lint` reports problems that were there before this change:", "",
                           fence((lint_after.stdout + lint_after.stderr)[-3000:]), ""]
-          summary += [f"**@{REQUESTER}: check the diff above, then tick your review below** (at least H0, and "
-                      "\"I take responsibility\"). The AI declaration of this pull request describes this change to "
-                      "`SIGNOFF.toml`, not the files it declares. The PR-signoff check passes only once you have ticked.", ""]
+          summary += [f"**@{REQUESTER}: check the diff above, then tick your human review below** (at least H0; a "
+                      "\"take responsibility\" box too, if the template has one). The AI declaration of this pull request "
+                      "describes this change to `SIGNOFF.toml`, not the files it declares. The signoff check passes only once "
+                      "you have ticked.", ""]
           summary = "\n".join(summary)
 
           tpl = template()
           if tpl is None:
               pr_body = (summary + f"\nCloses #{NUMBER}\n\nAI-Generation: G0\nHuman-Review: \nAI-Review: A0\n"
-                         f"Reviewed-by: {responsible or REQUESTER}\n")
+                         f"Reviewed-by: {responsible or REQUESTER}\n\nResponsible person: @{REQUESTER}\n")
           else:
               tpl = tpl.replace("\r\n", "\n")
               m = re.search(r"^#+ *What does this (PR|pull request) change\?.*$", tpl, re.M | re.I)
