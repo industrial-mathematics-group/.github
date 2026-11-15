@@ -9,8 +9,9 @@
 #   - the responsible human: the PR author, or the "Responsible person: @login" line for PRs opened by bots
 #   - the minimum levels of the [policy] in SIGNOFF.toml of the BASE branch
 #   - in repositories with SIGNOFF.toml, every file and (with [history]) every line of the merged result
-#   - that the PR doesn't change [policy], exclude or [history] of SIGNOFF.toml, unless its author may
-#     (input allow-policy-change)
+#   - that the PR doesn't change [policy], exclude or [history] of SIGNOFF.toml: such changes are committed
+#     to main directly. A repository can let PR authors with some permissions change them (input
+#     allow-policy-change); their PR is still checked under the base branch's [policy] (aisignoff >= 1.0.0rc4)
 # The declaration travels into git through the merge commit, whose message is the PR title and
 # description (see SETUP.md); the "Signoff-Badges" workflow reads it from there.
 #
@@ -29,19 +30,22 @@ on:
       allow-policy-change:
         description: >-
           Repository permissions of PR authors who may change [policy], exclude or [history] of SIGNOFF.toml
-          in a pull request, comma-separated (admin, maintain, write), or "" for nobody
+          in a pull request, comma-separated (admin, maintain, write); "" (the default): nobody, such changes
+          are committed to main directly. Needs aisignoff >= 1.0.0rc4, so that such a PR can't lower the bar for
+          itself. The permission is the PR author's, not of whoever pushed to its branch.
         type: string
-        default: admin,maintain
+        default: ""
 
 jobs:
   check:
-    # Dependency update bots are exempt: Dependabot, and github-actions[bot] for CompatHelper.
-    # A skipped required check counts as passed, so other bots and AI agents must declare like everyone else,
-    # and so must the pull requests of the Signoff-Request workflow (github-actions[bot], branch
-    # signoff-request/*): their "Responsible person" ticks the review.
+    # Dependency update bots are exempt: Dependabot, and CompatHelper (github-actions[bot] on its branches
+    # compathelper/*). A skipped required check counts as passed, so nothing else is: not other bots and AI
+    # agents, and not other pull requests of github-actions[bot], which any workflow of the repository can
+    # open (such as Signoff-Request's, whose "Responsible person" ticks the review).
     if: >-
-      ${{ !contains(fromJSON('["dependabot[bot]", "github-actions[bot]"]'), github.event.pull_request.user.login) ||
-          startsWith(github.event.pull_request.head.ref, 'signoff-request/') }}
+      ${{ github.event.pull_request.user.login != 'dependabot[bot]' &&
+          !(github.event.pull_request.user.login == 'github-actions[bot]' &&
+            startsWith(github.event.pull_request.head.ref, 'compathelper/')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

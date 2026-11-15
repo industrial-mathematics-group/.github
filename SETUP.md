@@ -56,8 +56,12 @@ the input `aisignoff-version`): one parser and one set of rules for the PR templ
   opened by bots). In a repository without `SIGNOFF.toml`, that's all it checks.
 - **With `SIGNOFF.toml`:** also every file, and with `[history]` every line, of GitHub's merge preview, with the
   `[policy]` of the base branch, so a PR can't lower the bar for itself. A PR that changes `[policy]`, `exclude`
-  or `[history]` (or removes `SIGNOFF.toml`) fails unless its author has one of the permissions in the input
-  `allow-policy-change` (default `admin,maintain`); maintainers can also commit such changes to `main` directly.
+  or `[history]` (or removes `SIGNOFF.toml`) fails, also for maintainers: they commit such changes to `main`
+  directly (with `undeclared = "error"`, give the commit message "Key: value" lines, such as `AI-Generation: G0`).
+  A repository can instead let PR authors with some permissions make them, with the input `allow-policy-change`
+  (for example `admin,maintain`; it needs aisignoff >= 1.0.0rc4): their PR is then still checked under the base
+  branch's `[policy]`, and the job summary says that it changes the rules. The permission is the PR author's, so
+  anyone who can push to that PR's branch can add such a change.
   With this, *File-signoff* on pull requests checks the same files again; keep it for pushes, merge queues and
   badges.
 - The repository callers don't change: the check is still `pr-signoff / check`, triggered by
@@ -111,7 +115,7 @@ issue form ──► Signoff-Request: aisignoff annotate / attest, lint ──�
   requests opened with `GITHUB_TOKEN`, so the workflow starts File-signoff on the branch itself
   (`workflow_dispatch`), and *PR-signoff* runs once the requester edits the description to tick their review;
   until then a required `pr-signoff / check` stays pending, which is the intended gate. These pull requests are
-  opened by `github-actions[bot]`, but unlike CompatHelper's they are not exempt from PR-signoff.
+  opened by `github-actions[bot]`, but unlike CompatHelper's (branches `compathelper/*`) they are not exempt from PR-signoff.
 - **A pull request that changes only `SIGNOFF.toml`** is checked like any other: *PR-signoff* requires a complete
   description for every pull request (G0 for the bot's change, the requester's H level, and the `[policy]` of
   `main`), whatever it changes. Nothing to configure.
@@ -254,7 +258,7 @@ feature branch ──(anything goes)──► PR into main
 ```
 
 - The declaration is only enforced for PRs into `main`. Commits on other branches are not checked. Draft PRs are checked too, so problems show up early, but only the state at merge counts.
-- PRs opened by dependency update bots (Dependabot, and CompatHelper as `github-actions[bot]`) skip the check. Other bots and AI agents don't.
+- PRs opened by dependency update bots (Dependabot, and CompatHelper as `github-actions[bot]` from its branches `compathelper/*`) skip the check. Other bots, AI agents and other PRs of `github-actions[bot]` don't.
 - Commits from before the policy have no declaration and are not counted in the badges. Commits declared with the trailer lines of earlier templates still count.
 
 ## Forgejo mirrors
