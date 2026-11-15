@@ -28,7 +28,9 @@ Follow it; this guide only says how to apply it.
 
 Rules: G1–G3 need `Assisted-by`; G0 has none. A1–A3 need `AI-Reviewed-by`, and A0 has none: a self-check by the
 session that wrote the content is A0. For A2 and A3 the reviewer is a model that is not in `Assisted-by` (another
-model of the same vendor counts, another version of the same model doesn't). Every file needs `Reviewed-by`, the
+model of the same vendor counts, another version of the same model doesn't). A commit message or pull request
+that declares A2 or A3 names the review report in `AI-Reviewed-by` and gives its highest finding in the change
+in a line `AI-Review-Findings:` (none, trivial, minor, major or critical). Every file needs `Reviewed-by`, the
 responsible human.
 A repository's `SIGNOFF.toml` may contain a `[policy]` table that requires higher minimums.
 

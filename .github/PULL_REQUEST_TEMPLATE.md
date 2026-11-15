@@ -32,7 +32,7 @@ AI models that wrote parts of it (G1-G3, tick all that apply):
 - [ ] **GPT Terra** (OpenAI)
 - [ ] **Other:** 
 
-Human review (at least H0 is required; the levels build on each other: tick every level up to the one you did):
+Human review (at least H0 is required; the levels build on each other: tick the highest one you did):
 - [ ] **H0** I checked the result as a whole: it does what was asked, runs, and the output is plausible
 - [ ] **H1** I ran the tests or reproduced the key results myself, and read the important parts
 - [ ] **H2** I read every changed line, understand it, and checked edge cases
@@ -43,3 +43,6 @@ AI review (only review that is independent of the session that wrote the change;
 - [ ] **A1** A new AI session, without the generating conversation, checked the final change and ran the tests. Model, if not one of the above: 
 - [ ] **A2** A different, capable model did that check and committed one review report. Model and report: 
 - [ ] **A3** A different, capable model validated it with new evidence (new tests, benchmarks, another method), committed with the report. Model and report: 
+
+For A2 and A3, the highest severity the review found in this change itself, as its report says (none, trivial, minor, major or critical):
+AI-Review-Findings: 

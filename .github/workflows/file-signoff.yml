@@ -1,4 +1,4 @@
-# Reusable workflow: file-level AI declarations with aisignoff (SIGNOFF.toml / inline tags).
+# Reusable workflow: file-level AI declarations with aisignoff (SIGNOFF.toml).
 #   lint    every push, pull request and merge queue run: fails if a file (or, with [history], a line)
 #           has no valid declaration; writes the level mix per folder to the job summary and uploads
 #           the interactive folder report as an artifact
@@ -13,7 +13,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI (pinned, so a new release can't change the check unannounced)
         type: string
-        default: "1.0.0rc6"
+        default: "1.0.0rc7"
       weight:
         description: Badge weighting, "files" or "lines"
         type: string

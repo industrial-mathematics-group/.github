@@ -157,6 +157,9 @@ jobs:
               notes = [f"{boxes} from the ticked questions of merged PRs"] if boxes else []
               if legacy:
                   notes.append(f"{legacy} with the old V0-V3 trailers, mapped conservatively")
+              if declared - boxes - legacy:
+                  notes.append(f"{declared - boxes - legacy} with trailer lines, counted as written (an AI-Review "
+                               "trailer from before aisignoff 1.0.0rc6 is on the scale of that time)")
               s.write(f" ({'; '.join(notes)}).\n\n" if notes else ".\n\n")
               s.write("| Level | Commits |\n|---|---|\n")
               for counts in (gen, hum, air):

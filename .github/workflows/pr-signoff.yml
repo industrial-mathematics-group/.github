@@ -7,11 +7,12 @@
 #   - the description on its own: G0-G3 (one), H0-H3 ticked up to the level that was done, the highest ticked
 #     A0-A3 (none: A0), the models for G1-G3, the reviewing model for A1-A3 (for A2 and A3 a model that didn't
 #     write the change)
-#   - committed review reports: none lists a finding that needs a new review ([review] in SIGNOFF.toml)
+#   - for A2 and A3: the line "AI-Review-Findings:" (below the threshold of [review] recheck in SIGNOFF.toml of
+#     the BASE branch) and the review report named in the box (a file of the PR or a link; its content isn't read)
 #   - the responsible human: the PR author, or the "Responsible person: @login" line for PRs opened by bots
 #   - the minimum levels of the [policy] in SIGNOFF.toml of the BASE branch
 #   - in repositories with SIGNOFF.toml, every file and (with [history]) every line of the merged result
-#   - that the PR doesn't change [policy], exclude or [history] of SIGNOFF.toml: such changes are committed
+#   - that the PR doesn't change [policy], [review], version, exclude or [history] of SIGNOFF.toml: such changes are committed
 #     to main directly. A repository can let PR authors with some permissions change them (input
 #     allow-policy-change); their PR is still checked under the base branch's [policy] (aisignoff >= 1.0.0rc4)
 # The declaration travels into git through the merge commit, whose message is the PR title and
@@ -28,7 +29,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI; keep it at File-signoff's
         type: string
-        default: "1.0.0rc6"
+        default: "1.0.0rc7"
       allow-policy-change:
         description: >-
           Repository permissions of PR authors who may change [policy], exclude or [history] of SIGNOFF.toml

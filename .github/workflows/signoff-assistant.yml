@@ -41,7 +41,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI; keep it at File-signoff's
         type: string
-        default: "1.0.0rc6"
+        default: "1.0.0rc7"
       dispatch-workflows:
         description: Passed to Signoff-Request (without an app, the File-signoff caller to start on the branch)
         type: string

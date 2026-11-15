@@ -97,11 +97,14 @@ The A axis counts only review that is **independent of the session that wrote th
 
 **Reviews are committed (A2–A3).** The review goes into a dedicated review folder as a Markdown file. If not noted otherwise in the repository, the folder is `reviews` and the file is named `commit#.md` or `pull#.md`, with the respective commit or pull request number. The review folder is excluded from the AI declaration.
 
-- **A2: exactly one Markdown file,** with only the results: what was reviewed and how, the findings with their severity, the fixes made for them, and the problems left open.
+- **A2: exactly one Markdown file,** with only the results. In this organisation it follows the [report template](https://github.com/industrial-mathematics-group/aisignoff/blob/main/examples/review-report.md).
 - **A3: the same report, plus the evidence:** new tests go into the test suite; other files (scripts, derivations, benchmark results) go into a folder with the report's name next to it.
 - **A1** needs no report.
 
-A report lists each finding as a list item or heading that starts with its severity, so that aisignoff can read it: `- **minor:** the error message names the wrong file. Fixed in 3f1c9e0.`
+The template keeps two lists apart:
+
+- **Findings in this change:** what the change itself introduces or makes worse, each with its severity and whether it is fixed or open. The line `Highest finding in this change:` at the top of the report gives the highest severity among them, or `none`.
+- **Outside this change:** problems the reviewer met that were there before the change, of any severity, each with the reason why the change isn't its cause. They don't count towards the highest finding, so a review can report a major problem elsewhere in the code without holding up the change. Maintainers read this section to see that it really is separate from the change.
 
 **Findings and fixes.** A review counts once each of its findings is fixed or listed as open in the report. Findings are rated on four levels, after IEEE Std 1044-2009:
 
@@ -112,7 +115,9 @@ A report lists each finding as a list item or heading that starts with its sever
 | **minor** | A limited effect, or an easy way around it | A wrong result in a rare edge case; a misleading error message; a missing test | An imprecise statement; an inconsistency between text and table that doesn't change a result |
 | **trivial** | No effect on results or behaviour | Naming, style, comments, typos | Wording, layout, typos |
 
-A fix for a minor or trivial finding needs no review of its own. A **major or critical finding ends the review**: fix it, have the change reviewed again in a new session, and commit that review's report in place of the old one. The check enforces this: `aisignoff lint` fails on a committed report that lists a major or critical finding, fixed or not. A repository can move the threshold with `recheck` in the `[review]` table of its `SIGNOFF.toml`.
+A fix for a minor or trivial finding needs no review of its own. A **major or critical finding in the change ends the review**: fix it, have the change reviewed again in a new session, and commit that review's report in place of the old one. A repository can move the threshold with `recheck` in the `[review]` table of its `SIGNOFF.toml`.
+
+The declaration repeats the report's highest finding in a line `AI-Review-Findings:`, in the PR template below the AI review boxes and in a commit message next to `AI-Review:`. The check (aisignoff 1.0.0rc7 or later) needs that line for A2 and A3, and the report named after `Model and report:` (a file of the PR, or a link). It fails when the line says a severity from the threshold on. It never reads the report: it is a guard against mistakes, and maintainers decide whether a report is in order.
 
 ### Minimum levels per repository
 
@@ -132,8 +137,8 @@ The **AI declaration** section of the PR template asks a few questions. Tick wha
 
 - **Generation:** tick exactly one of G0–G3.
 - **AI models:** for G1–G3, tick the model families that wrote parts of the change (Claude Fable, Opus or Sonnet; GPT Astra, Sol or Terra), or tick **Other** and write the tool and model after it, e.g. `Other: Gemini 3 Pro (Google)`. For G0, leave them all unticked.
-- **Human review:** tick every level you did. They build on each other, so H2 means H0, H1 and H2 are ticked; a ticked level above an unticked one fails the check in repositories with a `SIGNOFF.toml` of version 4.
-- **AI review:** tick the highest level that was done, or A0; the highest ticked one counts, and none ticked means A0. For A2 and A3, write the reviewing model and the report after `Model and report:`; it must be a model that didn't write the change. For A1, the reviewing model is taken to be the one that wrote the change, in a new session, unless you name another after `Model, if not one of the above:`.
+- **Human review:** tick the highest level you did. The levels build on each other, so H2 says H0 and H1 too; ticking those as well changes nothing.
+- **AI review:** tick the highest level that was done, or A0; the highest ticked one counts, and none ticked means A0. For A2 and A3, write the reviewing model and the report after `Model and report:` (e.g. `GPT Sol (OpenAI), reviews/pull12.md`); it must be a model that didn't write the change. Write the report's highest finding in this change after `AI-Review-Findings:`. For A1, the reviewing model is taken to be the one that wrote the change, in a new session, unless you name another after `Model, if not one of the above:`.
 - **Responsible human:** the person who opens the PR; by ticking a human review level they take responsibility for the change, however it was created. A PR opened by a bot or app account adds a line `Responsible person: @login` naming a human instead. Dependency update bots (Dependabot, CompatHelper) skip the check.
 
 Keep the questions as they are in the template: the check reads only boxes outside comments and code blocks, and fails if a level is missing. There are no trailer lines to fill in; leftover `AI-Generation:`-style lines from the previous template next to ticked boxes are an error.
@@ -156,7 +161,7 @@ aisignoff annotate results/ -g G2 -H H1 -a A1 \
 aisignoff lint                                                        # every file declared?
 ```
 
-The same levels, rules and policy apply. Text files can carry the declaration in a header comment instead (`aisignoff annotate FILE --inline`).
+The same levels, rules and policy apply. aisignoff reads declarations only from `SIGNOFF.toml` and from git, never from the content of a file: a declaration in a header comment (the inline tags up to 1.0.0rc6) no longer counts, see [Upgrading](https://industrial-mathematics-group.github.io/aisignoff/migrating/).
 
 Prefer not to use the command line? In repositories with the *Signoff-Request* workflow, the issue form **Signoff: declare or attest files** opens the pull request for you, without AI; you review and merge it. In repositories with the @claude assistant you can also ask Claude; see [Asking Claude on GitHub](../claude/README.md).
 

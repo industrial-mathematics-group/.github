@@ -32,7 +32,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI (keep it at the version File-signoff uses)
         type: string
-        default: "1.0.0rc6"
+        default: "1.0.0rc7"
       guide-ref:
         description: Git ref of industrial-mathematics-group/.github to read claude/ORG-GUIDE.md from
         type: string
