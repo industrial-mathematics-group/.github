@@ -8,15 +8,15 @@ You never have to write TOML or use git.
 You need to be a member of the organisation with write access to the repository. Claude ignores requests from
 anyone else.
 
-## The three ways to ask
+## How to ask
 
-| You want to … | Do this |
-|---|---|
-| Declare how files were made (AI levels) | *Issues → New issue →* **Claude: declare AI use for files** |
-| Add something to the website | In the `website` repository: *Issues → New issue →* **Claude: add something to the website** |
-| Anything else | *Issues → New issue →* **Claude: ask for something else**, or write `@claude` followed by your request in any issue or pull request comment |
+Open an issue (or comment in one, or in a pull request) and write `@claude` followed by your request, as you
+would to a colleague: which files or which entry, and everything Claude needs to know. Writing `@claude`
+anywhere in a comment starts Claude, so only use it when you mean it.
 
-Writing `@claude` anywhere in a comment starts Claude, so only use it when you mean it.
+To declare how files were made (AI levels) you don't need Claude: the issue form
+**Signoff: declare or attest files** (*Issues → New issue*) prepares the pull request without AI, from your
+answers alone.
 
 ## What happens next
 
@@ -49,7 +49,7 @@ Claude adds the declaration to your pull request.
 
 ## Two declarations, not one
 
-- **The form's answers** describe *your files*: how much AI helped make them and how you checked them.
+- **Your answers** describe *your files*: how much AI helped make them and how you checked them.
   Claude only writes down what you said.
 - **The ticks in the pull request** describe *Claude's change* to the repository (for example the edit to
   `SIGNOFF.toml`). Claude ticks its own part (G3, its model, A1); you tick how you checked it (H).

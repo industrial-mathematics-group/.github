@@ -4,7 +4,7 @@
      with src/content.config.ts. Field names here must match the collection schemas exactly. -->
 
 This is the Industrial Mathematics Group website, built with [Astro](https://astro.build). People ask for new
-entries through the "add something to the website" issue form. The org-wide rules (plain language, never invent
+entries in an issue with "@claude" (or through the repository's own issue form, if it has one). The org-wide rules (plain language, never invent
 content, the PR declaration) apply; this file adds what is specific to the website.
 
 ## Where entries go

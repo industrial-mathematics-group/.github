@@ -1,0 +1,27 @@
+name: Signoff-Request
+
+# Turns the issue form "Signoff: declare or attest files" into a pull request that changes SIGNOFF.toml,
+# for the requester to review and merge. No AI. For repositories that use File-signoff.
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  signoff-request:
+    # issues made with the form, and edits of their text
+    if: >-
+      github.event.issue.state == 'open' && contains(github.event.issue.body, '### What should be recorded?') &&
+      (github.event.action != 'edited' || github.event.changes.body)
+    uses: industrial-mathematics-group/.github/.github/workflows/signoff-request.yml@main
+    with:
+      app-id: ${{ vars.SIGNOFF_APP_ID }}   # the organisation's signoff bot app; empty: github-actions[bot]
+    #   dispatch-workflows: file-signoff.yml   # without the app: the file name of your File-signoff workflow
+    #   aisignoff-version: "1.0.0rc2"          # keep it at File-signoff's
+    secrets:
+      app-private-key: ${{ secrets.SIGNOFF_APP_PRIVATE_KEY }}

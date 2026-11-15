@@ -134,7 +134,7 @@ aisignoff lint                                                        # every fi
 
 The same levels, rules and policy apply. Text files can carry the declaration in a header comment instead (`aisignoff annotate FILE --inline`).
 
-Prefer not to use the command line? In repositories with the @claude assistant, the issue form **Claude: declare AI use for files** writes the declaration for you; see [Asking Claude on GitHub](../claude/README.md).
+Prefer not to use the command line? In repositories with the *Signoff-Request* workflow, the issue form **Signoff: declare or attest files** opens the pull request for you, without AI; you review and merge it. In repositories with the @claude assistant you can also ask Claude; see [Asking Claude on GitHub](../claude/README.md).
 
 If a repository has a `SIGNOFF.toml`, **update it in the same PR** whenever your change alters how a file was created or reviewed. The *File-signoff* check fails if any file is left without a valid declaration.
 

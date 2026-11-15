@@ -10,6 +10,7 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/workflows/pr-signoff.yml` | Reusable workflow *PR-signoff*: checks the AI declaration of a PR, sets labels |
 | `.github/workflows/signoff-badges.yml` | Reusable workflow *Signoff-Badges*: publishes the README badges of the PR declarations |
 | `.github/workflows/file-signoff.yml` | Reusable workflow *File-signoff*: file-level declarations with aisignoff (lint + badges) |
+| `.github/workflows/signoff-request.yml`, `.github/ISSUE_TEMPLATE/signoff-request.yml` | Reusable workflow *Signoff-Request* and its issue form: a `SIGNOFF.toml` change from an issue, without AI |
 | `.github/workflows/claude.yml`, `claude/` | The @claude assistant (see [below](#the-claude-assistant)) |
 | `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
@@ -58,8 +59,49 @@ For repositories with results, data or papers, or with casual single-commit uplo
 ```
 
 3. Optionally require the status check **`file-signoff / lint`** on `main`.
+4. Optionally add **Signoff-Request** (*Actions → New workflow*), see [below](#signoff-requests-from-issues).
 
 Both systems can run side by side: the PR check and its badges describe changes, aisignoff describes files. They use different badge files on the same `badges` branch.
+
+### Signoff requests from issues
+
+Lets group members declare or attest files without TOML, git or AI. They fill in the issue form
+**Signoff: declare or attest files** (an organisation default, like the PR template); the *Signoff-Request*
+workflow writes the answers with `aisignoff annotate` or `aisignoff attest` (or a `[[commits]]` correction),
+checks the result with `aisignoff lint`, pushes the branch `signoff-request/issue-<n>` and opens a pull request
+from the PR template. Nothing is merged without a human:
+
+```
+issue form ──► Signoff-Request: aisignoff annotate / attest, lint ──► branch + PR (G0 ticked, "Responsible person: @requester")
+   ▲  comment: what to fix                                                   │
+   └──────── edit the issue: runs again, updates the PR                       ▼
+                       requester reviews Files changed, ticks H0–H3 and "I take responsibility" ──► pr-signoff / check ──► merge
+```
+
+- **Per repository:** *Actions → New workflow* → **Signoff-Request**. It needs *File-signoff* and a `SIGNOFF.toml`.
+  If your File-signoff workflow file isn't called `file-signoff.yml`, set `dispatch-workflows` in the caller.
+- **Bot account (optional, recommended).** By default the bot is `github-actions[bot]`. To give it its own name,
+  create a GitHub App once for the organisation (*Organisation settings → Developer settings → GitHub Apps → New*):
+  no webhook, repository permissions **Contents**, **Pull requests** and **Issues** read and write; install it on
+  the repositories with Signoff-Request. Then add the organisation variable `SIGNOFF_APP_ID` (its App ID) and the
+  organisation secret `SIGNOFF_APP_PRIVATE_KEY` (a private key generated on the app's page), both for the same
+  repositories. The caller passes them on; without them the workflow falls back to `github-actions[bot]`.
+- **With the app,** its pull requests start File-signoff and PR-signoff like anyone's; PR-signoff fails until the
+  requester ticks, and reads "Responsible person" because the author is a bot.
+- **Without the app,** the workflow needs "Allow GitHub Actions to create and approve pull requests" (section 1; a
+  repository can switch it off under its own *Settings → Actions → General*). GitHub starts no workflows for pull
+  requests opened with `GITHUB_TOKEN`, so the workflow starts File-signoff on the branch itself
+  (`workflow_dispatch`), and *PR-signoff* runs once the requester edits the description to tick their review;
+  until then a required `pr-signoff / check` stays pending, which is the intended gate. These pull requests are
+  opened by `github-actions[bot]`, but unlike CompatHelper's they are not exempt from PR-signoff.
+- **A pull request that changes only `SIGNOFF.toml`** is checked like any other: *PR-signoff* reads only the
+  description, never the changed files, so it needs the ticks (G0 for the bot's change, the requester's H level
+  and responsibility, and the repository's `[policy]`). *File-signoff* never declares `SIGNOFF.toml` itself; it
+  checks that the new declarations are valid. Nothing to configure.
+- Only people with write access get a branch; others get a comment. The form's text is passed to aisignoff as
+  arguments, never to a shell, and no code from the repository runs.
+- Repositories with their own `.github/ISSUE_TEMPLATE/` folder don't see the organisation's forms: copy
+  `signoff-request.yml` into it. Optionally create a label `signoff-request`, which the form applies if it exists.
 
 ## The @claude assistant
 
@@ -67,6 +109,7 @@ Lets group members ask Claude in issues and pull requests, mainly to write `SIGN
 website entries without touching TOML or git. Claude runs in GitHub Actions through the official
 [Claude GitHub App](https://github.com/apps/claude) and [claude-code-action](https://github.com/anthropics/claude-code-action).
 It pushes a branch and posts a "Create PR" link; the person who asked opens the PR, ticks their review level and merges.
+For declaring files, the [Signoff-Request](#signoff-requests-from-issues) form does the same without AI.
 
 | Path | Purpose |
 |---|---|
@@ -75,7 +118,6 @@ It pushes a branch and posts a "Create PR" link; the person who asked opens the 
 | `claude/ORG-GUIDE.md` | Claude's instructions for every repository: AI levels, aisignoff, the PR declaration |
 | `claude/README.md` | Guide for group members: how to ask Claude |
 | `claude/examples/website-CLAUDE.md` | Starting point for the website repository's `CLAUDE.md` |
-| `.github/ISSUE_TEMPLATE/claude-*.yml` | Issue forms: declare files, add to the website, ask for something else |
 
 ### Once for the organisation
 
@@ -103,13 +145,8 @@ It pushes a branch and posts a "Create PR" link; the person who asked opens the 
    *Configure* → *Commit changes*. Uncomment `node-version: "22"` for the website.
 2. Optional: a `CLAUDE.md` in the repository root with what Claude should know about it (folder layout, what the
    files are, special declaration defaults). For the website, start from `claude/examples/website-CLAUDE.md`.
-3. Optional: labels `ai-declaration`, `website` and `claude-request`, which the issue forms apply if they exist.
-4. Test it: open an issue with the form **Claude: ask for something else** and ask
-   "Summarise what this repository contains". A progress comment should appear within a minute or two.
-
-The issue forms are organisation defaults: they appear in every repository without its own `ISSUE_TEMPLATE`
-folder. In repositories without the Claude workflow nothing happens when they are used. A repository with its
-own templates can copy the `claude-*.yml` forms it wants.
+3. Test it: open an issue and write "@claude summarise what this repository contains". A progress comment
+   should appear within a minute or two.
 
 ### Settings you may want to change
 
@@ -120,7 +157,7 @@ In the caller workflow (`with:`):
 | `model` / `model-name` | `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Anthropic)` | A stronger model, e.g. `claude-opus-5-5` / `Claude Opus 5.5 (Anthropic)`. Change both together: `model-name` is what Claude writes into declarations. |
 | `node-version` | none | `"22"` for repositories that build with Node (the website) |
 | `max-turns` | `40` | Cost guard per run |
-| `aisignoff-version` | `1.0.0rc1` | The aisignoff release Claude uses; keep it at File-signoff's |
+| `aisignoff-version` | `1.0.0rc2` | The aisignoff release Claude uses; keep it at File-signoff's |
 | `guide-ref` | `main` | Pin the guide to a tag |
 
 Organisation-wide behaviour (levels, wording, PR declaration) is changed in `claude/ORG-GUIDE.md`; every
@@ -129,7 +166,7 @@ repository picks it up on its next run.
 ### How a request runs
 
 ```
-issue form / "@claude" comment
+issue or comment with "@claude"
    │  caller workflow in the repository (skipped unless "@claude" is in the text)
    ▼
 reusable workflow: checkout ─► pip install aisignoff ─► ORG-GUIDE.md as ~/.claude/CLAUDE.md

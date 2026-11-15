@@ -51,7 +51,7 @@ aisignoff report --files       # to show the person what is declared now
 
 - Folders become `folder/**`; quote globs. Paths must exist in the repository. If a path doesn't exist, ask.
 - The last matching annotation wins. `annotate` appends, so a later, more specific entry overrides a general one.
-- Translate the form's answers literally: the level the person picked is the level you write. The model names
+- Translate the person's answers literally: the level the person picked is the level you write. The model names
   they give go into `--assisted-by`; the reviewer and method go into `--ai-reviewed-by`, followed by the same
   wording the policy uses (e.g. `"..., new session"`).
 - `Reviewed-by` is the full name the person gave, never yours and never a GitHub bot.
@@ -109,8 +109,8 @@ say so in your reply and suggest which boxes to change.
 ## Website
 
 The group website is the `website` repository (Astro). Its `CLAUDE.md` describes the content collections and
-fields; follow it exactly. If the "add something to the website" form is used in another repository, say
-that it belongs in `website` and stop.
+fields; follow it exactly. If you're asked to add a website entry in another repository, say that it
+belongs in `website` and stop.
 
 ## Limits
 

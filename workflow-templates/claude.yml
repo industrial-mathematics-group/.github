@@ -1,7 +1,7 @@
 name: Claude
 
-# The @claude assistant: answers "@claude" in issues and PRs, and works on issues from the
-# "Ask Claude" forms. The job itself is the reusable workflow in industrial-mathematics-group/.github.
+# The @claude assistant: answers "@claude" in issues and PRs, including issues that mention it
+# when they are opened. The job itself is the reusable workflow in industrial-mathematics-group/.github.
 on:
   issue_comment:
     types: [created]
