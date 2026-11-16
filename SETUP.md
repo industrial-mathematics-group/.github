@@ -73,7 +73,7 @@ the input `aisignoff-version`): one parser and one set of rules for the PR templ
 For repositories with results, data or papers, or with casual single-commit uploads:
 
 1. **Once for the organisation:** the workflow installs aisignoff from PyPI, pinned by the input `aisignoff-version` of `.github/workflows/file-signoff.yml`. Raise the default there to update every repository at once, after checking the aisignoff changelog for **Breaking** changes; a repository can set `aisignoff-version` itself to differ.
-2. **Per repository:** add `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) and the **File-signoff** workflow (*Actions → New workflow*). It runs `aisignoff lint` on every push, PR and merge queue run, and on pushes to `main` it publishes the badges:
+2. **Per repository:** add the **File-signoff** workflow (*Actions → New workflow*), and `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) or let the workflow set it up (below). It runs `aisignoff lint` on every push, PR and merge queue run, and on pushes to `main` it publishes the badges:
 
 ```markdown
 [![AI generation (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-generation.json)](https://github.com/industrial-mathematics-group/aisignoff)
@@ -81,6 +81,19 @@ For repositories with results, data or papers, or with casual single-commit uplo
 [![AI review (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-ai-review.json)](https://github.com/industrial-mathematics-group/aisignoff)
 ```
 
+   **Without `SIGNOFF.toml`**, *File-signoff* skips the check with a warning, and on a push to `main` (or a manual
+   run) it opens a pull request from the branch `aisignoff-setup` that adds a `SIGNOFF.toml` with the organisation's
+   defaults: `[review]` `recheck = "major"`, `[history]` on, and a `**` annotation with every level and
+   `Reviewed-by` set to `TODO`. Someone fills in the `TODO`s (and annotates folders that differ), ticks a human
+   review box in the description and merges; *File-signoff* fails on that pull request until no `TODO` is left. The
+   pull request names the person whose push or run started the workflow as `Responsible person`. Checks start on the
+   first push to the branch, since GitHub doesn't run workflows for pull requests opened with the workflow token.
+   While the branch exists (also after the pull request is closed), no new one is opened: delete the branch to get
+   another. It needs `pull-requests: write` in the caller (in the template) and *Settings → Actions → General →
+   Allow GitHub Actions to create and approve pull requests* for the organisation or repository; without them, the
+   workflow pushes the branch and its job summary links to a new pull request with the description to paste.
+   Inputs: `setup: false` turns it off, `setup-recheck` (`""` leaves `[review]` out) and `setup-history` change the
+   defaults.
 3. Optionally require the status check **`file-signoff / lint`** on `main`.
 4. Optionally install the IMGAgent App on the repository for the signoff form and `@IMGAgent signoff`, see
    [below](#signoff-requests-the-form-and-imgagent).

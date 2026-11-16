@@ -4,6 +4,12 @@
 #           the interactive folder report as an artifact
 #   badges  pushes to the default branch: publishes aisignoff-generation.json,
 #           aisignoff-human-review.json and aisignoff-ai-review.json to the orphan branch "badges"
+#   setup   repositories without SIGNOFF.toml (lint and badges are skipped there, with a warning): on a push
+#           to the default branch or a manual run, opens a pull request from the branch "aisignoff-setup" that
+#           adds SIGNOFF.toml with the organisation's defaults ([review] recheck, [history], a "**" annotation
+#           with every level TODO for a person to fill in). Needs "pull-requests: write" in the caller; without
+#           it, the branch is pushed and the job summary links to it. Once the branch exists (open, closed or
+#           merged PR), nothing more is done: delete the branch to get a new setup pull request.
 # Called from each repository (see workflow-templates/file-signoff.yml).
 name: File-signoff
 
@@ -18,24 +24,53 @@ on:
         description: Badge weighting, "files" or "lines"
         type: string
         default: files
+      setup:
+        description: Without SIGNOFF.toml, open a pull request that sets aisignoff up with the defaults below
+        type: boolean
+        default: true
+      setup-recheck:
+        description: '[review] recheck of the set-up SIGNOFF.toml (trivial, minor, major, critical; "": left commented out)'
+        type: string
+        default: major
+      setup-history:
+        description: Turn on [history] (line-level declarations from git history) in the set-up SIGNOFF.toml
+        type: boolean
+        default: true
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      configured: ${{ steps.config.outputs.configured }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Look for SIGNOFF.toml
+        id: config
+        run: |
+          # AIDECL.toml (never converted) counts as set up: lint then says how to convert it
+          if [ -f SIGNOFF.toml ] || [ -f AIDECL.toml ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            MSG="This repository has no SIGNOFF.toml yet: aisignoff isn't set up, so no files are checked."
+            echo "::warning title=aisignoff not set up::$MSG Merge the pull request from the branch aisignoff-setup (opened on pushes to the default branch), or add one with 'aisignoff init'."
+            { echo '### AI signoff'; echo; echo "$MSG See the pull request from the branch \`aisignoff-setup\`."; } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/setup-python@v5
+        if: steps.config.outputs.configured == 'true'
         with:
           python-version: "3.12"
       - name: Install aisignoff
+        if: steps.config.outputs.configured == 'true'
         env:
           VERSION: ${{ inputs.aisignoff-version }}
         run: pip install "aisignoff==${VERSION}"
       - name: Summary and folder report
+        if: steps.config.outputs.configured == 'true'
         env:
           EVENT: ${{ github.event_name }}
         run: |
@@ -46,16 +81,19 @@ jobs:
           if [ "$EVENT" = pull_request ]; then SINCE=HEAD^1; fi
           aisignoff report --html "$RUNNER_TEMP/aisignoff-report.html" --with-source ${SINCE:+--since "$SINCE"} || true
       - uses: actions/upload-artifact@v4
+        if: steps.config.outputs.configured == 'true'
         with:
           name: aisignoff-report
           path: ${{ runner.temp }}/aisignoff-report.html
       - name: Check declarations
+        if: steps.config.outputs.configured == 'true'
         run: aisignoff lint
 
   badges:
     # Also runs when lint fails, so the badge shows the undeclared share; skipped when cancelled.
     if: >-
-      !cancelled() && github.event_name != 'pull_request' && github.event_name != 'merge_group' &&
+      !cancelled() && needs.lint.outputs.configured == 'true' &&
+      github.event_name != 'pull_request' && github.event_name != 'merge_group' &&
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     needs: lint
     runs-on: ubuntu-latest
@@ -110,3 +148,154 @@ jobs:
             echo "Push rejected (attempt $attempt), retrying ..."; sleep $((attempt * 3))
           done
           echo "Could not publish the badges." >&2; exit 1
+
+  setup:
+    # Repositories without SIGNOFF.toml: a pull request that sets aisignoff up with the organisation's defaults.
+    # Only from the default branch, so that pull requests and other branches don't each open one.
+    if: >-
+      inputs.setup && needs.lint.outputs.configured == 'false' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: lint
+    runs-on: ubuntu-latest
+    # No permissions key: the job gets the caller's token. "contents: write" pushes the branch, and with
+    # "pull-requests: write" (and "Allow GitHub Actions to create pull requests" in the settings) it opens the
+    # pull request. Asking for pull-requests here would make every caller without it fail to start.
+    concurrency:
+      group: aisignoff-setup-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install aisignoff
+        env:
+          VERSION: ${{ inputs.aisignoff-version }}
+        run: pip install "aisignoff==${VERSION}"
+      - name: Open the setup pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECHECK: ${{ inputs.setup-recheck }}
+          HISTORY: ${{ inputs.setup-history }}
+          BRANCH: aisignoff-setup
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
+          SERVER: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          summary() { printf '%s\n' "$@" >> "$GITHUB_STEP_SUMMARY"; }
+          summary '### aisignoff setup' ''
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            PR=$(gh pr list --repo "$REPO" --head "$BRANCH" --state all --json url,state \
+                   --jq '.[0] | select(.) | "\(.url) (\(.state | ascii_downcase))"' 2>/dev/null || true)
+            summary "The branch \`$BRANCH\` exists already${PR:+, pull request $PR}: nothing to do." \
+                    "Delete the branch to get a new setup pull request."
+            exit 0
+          fi
+          case "$RECHECK" in ""|trivial|minor|major|critical) ;;
+            *) echo "::error::setup-recheck must be trivial, minor, major, critical or empty, not '$RECHECK'"; exit 1;; esac
+
+          # the "**" annotation with every level TODO, which lint reports until a person fills it in
+          ARGS=(-g TODO -H TODO -a TODO)
+          if aisignoff init --help | grep -q -- '--history'; then
+            if [ -n "$RECHECK" ]; then ARGS+=(--recheck "$RECHECK"); fi
+            if [ "$HISTORY" = true ]; then ARGS+=(--history); fi
+            aisignoff init "${ARGS[@]}"
+          else
+            # aisignoff before init --recheck/--history: uncomment [review] and add [history] by hand
+            aisignoff init "${ARGS[@]}"
+            python3 - <<'PY'
+          import os, pathlib
+          p = pathlib.Path("SIGNOFF.toml")
+          s = p.read_text(encoding="utf-8")
+          if os.environ["RECHECK"]:
+              old = '# [review]\n# recheck = "major"\n'
+              assert old in s, "unexpected aisignoff init output"
+              s = s.replace(old, f'[review]\nrecheck = "{os.environ["RECHECK"]}"\n')
+          if os.environ["HISTORY"] == "true":
+              old = "# Default for everything\n"
+              assert old in s, "unexpected aisignoff init output"
+              s = s.replace(old, "# Line-level declarations from git history (aisignoff documentation, [history]).\n"
+                            "[history]\nenabled = true\n\n" + old)
+          p.write_text(s, encoding="utf-8")
+          PY
+          fi
+          aisignoff report >/dev/null   # SIGNOFF.toml reads (lint itself fails on the TODOs)
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b "$BRANCH"
+          git add SIGNOFF.toml
+          git commit -q -m "Set up aisignoff with the organisation's defaults" \
+            -m "SIGNOFF.toml from 'aisignoff init', written by the File-signoff workflow; its levels are TODO."
+          git push -q origin "HEAD:refs/heads/$BRANCH"
+
+          # The description: what to do, and the AI declaration of the PR template (the repository's, else the
+          # organisation's), with G0 and A0 ticked (a tool wrote the file) and the person who ran this as the
+          # responsible human, since the pull request is opened by github-actions.
+          TEMPLATE=""
+          for f in .github/PULL_REQUEST_TEMPLATE.md .github/pull_request_template.md PULL_REQUEST_TEMPLATE.md \
+                   pull_request_template.md docs/PULL_REQUEST_TEMPLATE.md docs/pull_request_template.md; do
+            if [ -f "$f" ]; then TEMPLATE="$f"; break; fi
+          done
+          if [ -z "$TEMPLATE" ] && gh api "repos/$OWNER/.github/contents/.github/PULL_REQUEST_TEMPLATE.md" \
+               -H "Accept: application/vnd.github.raw" > "$RUNNER_TEMP/template.md" 2>/dev/null; then
+            TEMPLATE="$RUNNER_TEMP/template.md"
+          fi
+          TEMPLATE="$TEMPLATE" BODY="$RUNNER_TEMP/body.md" python3 - <<'PY'
+          import os, re
+          intro = f"""## What does this PR change?
+
+          This repository has no `SIGNOFF.toml`, so aisignoff isn't checking any files yet. The File-signoff workflow
+          wrote one with `aisignoff init` and the organisation's defaults:
+
+          - `[review]` recheck: {os.environ["RECHECK"] or "left commented out"}
+          - `[history]` (line-level declarations from git history): {"on" if os.environ["HISTORY"] == "true" else "off"}
+          - a default annotation for `**` with every level and `Reviewed-by` set to `TODO`
+
+          To finish it:
+
+          1. Fill in the `TODO`s of the `**` annotation with what is true for most of the repository, and add
+             annotations for folders that differ (`aisignoff annotate`); add files that need no declaration to `exclude`.
+          2. Push to this branch. The checks run from that push on (GitHub doesn't start workflows for pull requests
+             that the workflow token opens); File-signoff fails until no `TODO` is left.
+          3. Tick the human review box below that you did, and merge.
+
+          Until then, File-signoff on the default branch skips the check with a warning. Not wanted? Close this
+          pull request and keep the branch `aisignoff-setup`: no new one is opened while it exists.
+          """
+          decl = ""
+          path = os.environ["TEMPLATE"]
+          if path:
+              text = open(path, encoding="utf-8").read().replace("\r\n", "\n")
+              m = re.search(r"^#+ *AI declaration.*$", text, re.M)
+              if m:
+                  decl = text[m.start():]
+                  for level in ("G0", "A0"):
+                      decl = re.sub(r"^(\s*[-*] )\[ \]( \*\*" + level + r"\*\*)", r"\1[x]\2", decl, count=1, flags=re.M)
+                  line = f"Responsible person: @{os.environ['ACTOR']}\n"
+                  end = decl.find("-->")
+                  if end >= 0:
+                      end = decl.index("\n", end) + 1
+                      decl = decl[:end] + "\n" + line + decl[end:]
+                  else:
+                      first = decl.index("\n") + 1
+                      decl = decl[:first] + "\n" + line + decl[first:]
+          open(os.environ["BODY"], "w", encoding="utf-8").write(intro + ("\n" + decl if decl else ""))
+          PY
+
+          TITLE="Set up aisignoff (SIGNOFF.toml with TODOs to fill in)"
+          if URL=$(gh pr create --repo "$REPO" --base "$DEFAULT_BRANCH" --head "$BRANCH" --title "$TITLE" \
+                     --body-file "$RUNNER_TEMP/body.md" 2>"$RUNNER_TEMP/gh-error"); then
+            summary "Opened the setup pull request: $URL"
+          else
+            LINK="$SERVER/$REPO/compare/$DEFAULT_BRANCH...$BRANCH?expand=1"
+            echo "::warning title=aisignoff setup::Pushed the branch $BRANCH, but couldn't open the pull request ($(head -c 300 "$RUNNER_TEMP/gh-error" | tr '\n' ' ')). Open it here: $LINK"
+            summary "Pushed the branch \`$BRANCH\` with a \`SIGNOFF.toml\`, but couldn't open the pull request" \
+                    "(give the caller workflow \`pull-requests: write\`, and allow GitHub Actions to create pull requests" \
+                    "in the repository or organisation settings). Open it by hand: $LINK" '' \
+                    '<details><summary>Suggested description</summary>' '' "$(cat "$RUNNER_TEMP/body.md")" '' '</details>'
+          fi
