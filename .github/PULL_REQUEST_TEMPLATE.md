@@ -44,5 +44,5 @@ AI review (only review that is independent of the session that wrote the change;
 - [ ] **A2** A different, capable model did that check and committed one review report. Model and report: 
 - [ ] **A3** A different, capable model validated it with new evidence (new tests, benchmarks, another method), committed with the report. Model and report: 
 
-For A2 and A3, the highest severity the review found in this change itself, as its report says (none, trivial, minor, major or critical):
+For A2 and A3, the highest severity the review found in this change itself, as its report says (none, trivial, minor, major or critical; leave it empty for A0 and A1):
 AI-Review-Findings: 

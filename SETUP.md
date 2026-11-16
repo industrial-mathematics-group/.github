@@ -57,7 +57,7 @@ the input `aisignoff-version`): one parser and one set of rules for the PR templ
   opened by bots). In a repository without `SIGNOFF.toml`, that's all it checks.
 - **With `SIGNOFF.toml`:** also every file, and with `[history]` every line, of GitHub's merge preview, with the
   `[policy]` of the base branch, so a PR can't lower the bar for itself. A PR that changes `[policy]`, `[review]`, `version`,
-  `exclude` or `[history]` (or removes `SIGNOFF.toml`) fails, also for maintainers: they commit such changes to `main`
+  `exclude` or `[history]`, the entries of `.git-blame-ignore-revs` (or removes `SIGNOFF.toml`) fails, also for maintainers: they commit such changes to `main`
   directly (with `undeclared = "error"`, give the commit message "Key: value" lines, such as `AI-Generation: G0`).
   A repository can instead let PR authors with some permissions make them, with the input `allow-policy-change`
   (for example `admin,maintain`; it needs aisignoff >= 1.0.0rc4): their PR is then still checked under the base
@@ -216,7 +216,7 @@ In the caller workflow (`with:`):
 | `model` / `model-name` | `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Anthropic)` | A stronger model, e.g. `claude-opus-5-5` / `Claude Opus 5.5 (Anthropic)`. Change both together: `model-name` is what Claude writes into declarations. |
 | `node-version` | none | `"22"` for repositories that build with Node (the website) |
 | `max-turns` | `40` | Cost guard per run |
-| `aisignoff-version` | `1.0.0rc7` | The aisignoff release Claude uses; keep it at File-signoff's |
+| `aisignoff-version` | `1.0.0rc8` | The aisignoff release Claude uses; keep it at File-signoff's |
 | `guide-ref` | `main` | Pin the guide to a tag |
 
 Organisation-wide behaviour (levels, wording, PR declaration) is changed in `claude/ORG-GUIDE.md`; every
@@ -272,7 +272,7 @@ The PR template no longer ends in trailer lines (`AI-Generation:`, `Reviewed-by:
 
 ## Repositories on older formats
 
-aisignoff reads `SIGNOFF.toml` with `version = 4`, and `version = 3` as the AI review scale before 1.0.0rc6, taken over to today's, until the repository is converted with [`convert-to-version-4.py`](https://github.com/industrial-mathematics-group/aisignoff/blob/main/examples/convert-to-version-4.py) ([Upgrading](https://industrial-mathematics-group.github.io/aisignoff/migrating/)). Until then, that repository's pull requests are read with this template on today's scale (from 1.0.0rc7 on; only a description with the boxes of the old template is read on the old scale), but the checks for A2 and A3 (the line `AI-Review-Findings:` and the review report) only apply from version 4 on, so convert each repository with a `SIGNOFF.toml` soon. The pull request that converts it changes `version`, which from 1.0.0rc7 on is protected like `[policy]`: commit the conversion to `main` directly, or let it through with `allow-policy-change`. A repository that still has `AIDECL.toml` (the name up to aidecl 0.3.0), version 1 (V0–V3) or version 2 (A-, A0–A3) fails *PR-signoff*, and *File-signoff* from aisignoff 1.0.0rc2 on, until it is converted, once, with the last release that does it:
+aisignoff reads `SIGNOFF.toml` with `version = 4`, and `version = 3` as the AI review scale before 1.0.0rc6, taken over to today's, until the repository is converted with [`convert-to-version-4.py`](https://github.com/industrial-mathematics-group/aisignoff/blob/main/examples/convert-to-version-4.py) ([Upgrading](https://industrial-mathematics-group.github.io/aisignoff/migrating/)). Until then, that repository's pull requests are read with this template on today's scale (from 1.0.0rc7 on; only a description with the boxes of the old template is read on the old scale), and from aisignoff 1.0.0rc8 on the checks for A2 and A3 (the line `AI-Review-Findings:` and the review report) apply to those boxes too. Convert each repository with a `SIGNOFF.toml` soon, moving inline tags into it first if it has any (`inline-tags-to-toml.py` before `convert-to-version-4.py`). The pull request that converts it changes `version`, which from 1.0.0rc7 on is protected like `[policy]`: commit the conversion to `main` directly, or let it through with `allow-policy-change`. A repository that still has `AIDECL.toml` (the name up to aidecl 0.3.0), version 1 (V0–V3) or version 2 (A-, A0–A3) fails *PR-signoff*, and *File-signoff* from aisignoff 1.0.0rc2 on, until it is converted, once, with the last release that does it:
 
 ```bash
 uvx aisignoff==1.0.0rc1 migrate --dry-run
