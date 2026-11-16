@@ -45,7 +45,7 @@ jobs:
     # Dependency update bots are exempt: Dependabot, and CompatHelper (github-actions[bot] on its branches
     # compathelper/*). A skipped required check counts as passed, so nothing else is: not other bots and AI
     # agents, and not other pull requests of github-actions[bot], which any workflow of the repository can
-    # open (such as Signoff-Request's, whose "Responsible person" ticks the review).
+    # open.
     if: >-
       ${{ github.event.pull_request.user.login != 'dependabot[bot]' &&
           !(github.event.pull_request.user.login == 'github-actions[bot]' &&

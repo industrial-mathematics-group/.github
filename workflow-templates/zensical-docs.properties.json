@@ -1,0 +1,6 @@
+{
+  "name": "Zensical docs",
+  "description": "Builds the documentation site in docs/ with Zensical on pull requests and publishes it on GitHub Pages from the default branch. Fits the site that \"@IMGAgent docs make\" writes.",
+  "iconName": "octicon book",
+  "filePatterns": ["zensical.toml$", "^docs/"]
+}

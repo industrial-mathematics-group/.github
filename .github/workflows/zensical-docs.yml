@@ -1,0 +1,71 @@
+# Reusable workflow: builds a repository's documentation site with Zensical (docs/ + zensical.toml) and
+# publishes it on GitHub Pages. Called from each repository (see workflow-templates/zensical-docs.yml).
+#
+#   build   every run: installs a pinned Zensical and runs "zensical build --clean", so a pull request shows a
+#           broken page or config before the merge
+#   deploy  pushes to the default branch and manual runs: uploads site/ and deploys it to GitHub Pages, at
+#           https://<owner>.github.io/<repo>/ (set that as site_url in zensical.toml)
+#
+# Works with the site "@IMGAgent docs make" writes (docs/ and zensical.toml, see IMGAgent's ZENSICAL.md).
+# One-time setup per repository: Settings → Pages → Source: "GitHub Actions".
+# Security: no secrets; the repository's Markdown and config are only read by Zensical, nothing else runs.
+name: Zensical docs
+
+on:
+  workflow_call:
+    inputs:
+      zensical-version:
+        description: Release of Zensical to install from PyPI (pinned, so a new release can't break the build unannounced)
+        type: string
+        default: "0.1.1"
+      python-version:
+        description: Python for Zensical
+        type: string
+        default: "3.13"
+      deploy:
+        description: Publish on GitHub Pages (pushes to the default branch and manual runs); false only builds
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Install Zensical
+        env:
+          VERSION: ${{ inputs.zensical-version }}
+        run: pip install "zensical==${VERSION}"
+      - name: Build the site
+        run: |
+          if [ ! -f zensical.toml ]; then
+            echo "::error::No zensical.toml in this repository. Write '@IMGAgent docs make' in an issue, or run 'zensical new'."
+            exit 1
+          fi
+          zensical build --clean
+      - uses: actions/upload-pages-artifact@v5
+        if: inputs.deploy && github.event_name != 'pull_request'
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: inputs.deploy && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write      # deploy to GitHub Pages
+      id-token: write   # prove the deployment comes from this workflow
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages-${{ github.repository }}
+      cancel-in-progress: false   # let a running deployment finish
+    steps:
+      - uses: actions/deploy-pages@v5
+        id: deployment

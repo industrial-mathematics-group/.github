@@ -163,7 +163,7 @@ aisignoff lint                                                        # every fi
 
 The same levels, rules and policy apply. aisignoff reads declarations only from `SIGNOFF.toml` and from git, never from the content of a file: a declaration in a header comment (the inline tags up to 1.0.0rc6) no longer counts, see [Upgrading](https://industrial-mathematics-group.github.io/aisignoff/migrating/).
 
-Prefer not to use the command line? In repositories with the *Signoff-Request* workflow, the issue form **Signoff: declare or attest files** opens the pull request for you, without AI; you review and merge it. In repositories with the @claude assistant you can also ask Claude; see [Asking Claude on GitHub](../claude/README.md).
+Prefer not to use the command line? In repositories with the IMGAgent App, the issue form **Signoff: declare or attest files** opens the pull request for you, without AI; or write `@IMGAgent signoff` in an issue and say in your own words what to record. You review and merge the pull request.
 
 If a repository has a `SIGNOFF.toml`, **update it in the same PR** whenever your change alters how a file was created or reviewed. The *File-signoff* check fails if any file is left without a valid declaration.
 

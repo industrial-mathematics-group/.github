@@ -1,0 +1,28 @@
+name: Zensical docs
+
+# Builds the documentation site (docs/ + zensical.toml) with Zensical on every pull request that touches it,
+# and publishes it on GitHub Pages from the default branch: https://<owner>.github.io/<repo>/
+# One-time setup: Settings → Pages → Source: "GitHub Actions". No site yet? Write "@IMGAgent docs make" in an issue.
+on:
+  push:
+    branches: [$default-branch]
+    paths: [docs/**, zensical.toml, .github/workflows/zensical-docs.yml]
+  pull_request:
+    paths: [docs/**, zensical.toml, .github/workflows/zensical-docs.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: zensical-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    uses: industrial-mathematics-group/.github/.github/workflows/zensical-docs.yml@main
+    # with:
+    #   zensical-version: "0.1.1"   # another release of Zensical than the organisation's default
+    #   deploy: false               # only build, e.g. while the site isn't ready to publish

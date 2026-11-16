@@ -1,0 +1,16 @@
+name: File-signoff
+
+# This repository's own file-level declarations (SIGNOFF.toml): aisignoff lint, and the file badges on main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  file-signoff:
+    uses: ./.github/workflows/file-signoff.yml

@@ -1,6 +1,0 @@
-{
-  "name": "Signoff-Request",
-  "description": "Turns the issue form \"Signoff: declare or attest files\" into a pull request that changes SIGNOFF.toml with aisignoff, for a human to review and merge. No AI.",
-  "iconName": "octicon git-pull-request",
-  "filePatterns": ["SIGNOFF.toml$"]
-}

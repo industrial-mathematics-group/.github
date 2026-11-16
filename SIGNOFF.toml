@@ -1,0 +1,29 @@
+# AI declarations for this repository: generation (G0-G3), human review (H0-H3)
+# and AI review (A0-A3).
+# Scheme: https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#ai-assisted-contributions
+# The LAST annotation that matches a file wins. With [history], the commits that wrote
+# a line win over it unless the matching annotation sets precedence = "override".
+version = 4
+
+# exclude = ["reviews/**", "docs/build/**"]   # files that need no declaration,
+# such as the committed AI reviews in reviews/ (CONTRIBUTING.md)
+
+# Minimum review levels (optional).
+# [policy]
+# "*" = { human = "H1" }
+# G3  = { human = "H2", ai = "A1" }
+
+# A commit or pull request that declares A2 or A3 says the highest severity its review found in
+# the change, in a line "AI-Review-Findings: minor". From this severity on (trivial, minor, major,
+# critical), the finding needs a new review, and lint fails (optional).
+# [review]
+# recheck = "major"
+
+# Default for everything
+[[annotations]]
+path = "**"
+AI-Generation = "G2"
+Human-Review = "H1"
+AI-Review = "A0"
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+Assisted-by = ["Claude Opus 5.5 (Anthropic)"]
