@@ -12,6 +12,7 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/workflows/file-signoff.yml` | Reusable workflow *File-signoff*: file-level declarations with aisignoff (lint + badges) |
 | `.github/workflows/signoff-request.yml`, `.github/ISSUE_TEMPLATE/signoff-request.yml` | Reusable workflow *Signoff-Request* and its issue form: a `SIGNOFF.toml` change from an issue, without AI |
 | `.github/workflows/signoff-assistant.yml` | Reusable workflow *Signoff-Assistant*: the `@signoff` assistant, which turns a request in plain words into the form's answers with the Claude API and hands them to Signoff-Request |
+| `.github/workflows/zensical-docs.yml` | Reusable workflow *Zensical docs*: builds `docs/` with Zensical and publishes it on GitHub Pages (see [below](#documentation-sites-zensical)) |
 | `.github/workflows/claude.yml`, `claude/` | The @claude assistant (see [below](#the-claude-assistant)) |
 | `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
@@ -161,6 +162,20 @@ checks them again and opens the pull request. Claude only suggests; the requeste
   schema whose values are checked and passed to aisignoff as separate arguments, never to a shell. Its comments
   can't mention other people or carry the workflows' hidden markers. No code of the repository runs.
 - Issues made with the form and pull requests are left alone; edited comments don't start it again (write a new one).
+
+## Documentation sites (Zensical)
+
+Repositories with a documentation site in `docs/` and a `zensical.toml` ([Zensical](https://zensical.org)) build
+and publish it with the reusable workflow *Zensical docs*:
+
+1. **Per repository:** *Actions → New workflow* → **Zensical docs**, and *Settings → Pages → Source:*
+   **GitHub Actions**.
+2. Pull requests that touch `docs/` or `zensical.toml` build the site, so a broken page or config fails before the
+   merge (require the check **`docs / build`** on `main` if you like). Pushes to `main` and manual runs build and
+   deploy it to `https://industrial-mathematics-group.github.io/<repo>/`; set that as `site_url`.
+3. No site yet? `@IMGAgent docs make` in an issue writes `docs/` and a complete `zensical.toml` as a pull request.
+4. Zensical is pinned by the input `zensical-version` (default `0.1.1`). Raise the default here to update every
+   repository at once after a test build; a repository can set its own. `deploy: false` only builds.
 
 ## The @claude assistant
 
