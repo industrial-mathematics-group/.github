@@ -1,6 +1,5 @@
-# Reusable workflow: the signoff assistant. Called from each repository's IMGAgent caller (see
-# workflow-templates/imgagent.yml) for "@IMGAgent signoff", next to Signoff-Request. Older callers that don't
-# pass the input command still answer the plain "@signoff" the examples below use.
+# Reusable workflow: the @signoff assistant. Called from each repository (see
+# workflow-templates/signoff-assistant.yml), next to Signoff-Request.
 #
 # Someone with write access writes "@signoff" and, in their own words, what to record, in a new issue or a
 # comment, e.g. "@signoff I wrote results/convergence/ with Claude Opus 5.5, which also checked its work; I
@@ -51,12 +50,6 @@ on:
         description: ID of a GitHub App to act as, instead of github-actions[bot] (with the secret app-private-key)
         type: string
         default: ""
-      command:
-        description: >-
-          What people write to call the assistant, e.g. "@IMGAgent signoff" (the IMGAgent caller); the caller's
-          if: must match the same text
-        type: string
-        default: "@signoff"
     secrets:
       anthropic-api-key:
         description: Claude API key; without it, "@signoff" gets a comment that points to the form
@@ -107,7 +100,6 @@ jobs:
           MODEL: ${{ inputs.model }}
           MODEL_NAME: ${{ inputs.model-name }}
           EFFORT: ${{ inputs.effort }}
-          COMMAND: ${{ inputs.command }}
           FALLBACKS: default  # if the model declines, the API retries on another one
         run: |
           python3 - <<'PY'
@@ -132,9 +124,7 @@ jobs:
           DEFAULT_BRANCH = EVENT["repository"]["default_branch"]
           MARKER = "<!-- aisignoff-signoff-assistant -->"
           OURS = (MARKER, "<!-- aisignoff-signoff-request -->")   # the assistant's and the request workflow's comments
-          CMD = " ".join((os.environ.get("COMMAND") or "@signoff").split())   # e.g. "@IMGAgent signoff"
-          MENTION = re.compile(r"(?<![\w@/`])" + re.escape(CMD).replace(r"\ ", r"\s+") + r"\b(?!-)", re.I)
-          ME = f"the `{CMD}` assistant"
+          MENTION = re.compile(r"(?<![\w@/`])@signoff\b(?!-)", re.I)
           LIMIT = 40000   # characters of conversation sent to the model, the newest kept
 
           # The issue form's labels and answers, exactly as in signoff-request.yml (issue form and workflow).
@@ -225,12 +215,12 @@ jobs:
 
           # ---------------------------------------------------------------- who may ask
           if not MENTION.search((TRIGGER or ISSUE).get("body") or ""):
-              sys.exit(0)   # the command only as part of a longer word or in code
+              sys.exit(0)   # "@signoff" only as part of a longer word or in code
           if not can_write(REQUESTER):
-              comment(f"@{REQUESTER}, {ME} only answers people with write access to this repository.")
+              comment(f"@{REQUESTER}, the @signoff assistant only answers people with write access to this repository.")
               sys.exit(0)
           if not os.environ.get("ANTHROPIC_API_KEY"):
-              comment(f"@{REQUESTER}, {ME} isn't set up in this repository (it needs the secret "
+              comment(f"@{REQUESTER}, the @signoff assistant isn't set up in this repository (it needs the secret "
                       "`ANTHROPIC_API_KEY`). Open an issue with the form **Signoff: declare or attest files** instead.")
               sys.exit(0)
 
@@ -282,7 +272,7 @@ jobs:
           profile = api("GET", f"/users/{REQUESTER}", ok404=True) or {}
           person = f"@{REQUESTER}" + (f" (name on GitHub: {profile['name']})" if profile.get("name") else "")
 
-          SYSTEM = f"""You are {ME} of a GitHub repository that records how its files were made and reviewed in SIGNOFF.toml, with the tool aisignoff. A person with write access wrote "{CMD}" and, in their own words, what to record. Turn the conversation into the answers of the repository's signoff request form, or ask for what is missing. You only suggest: a separate workflow checks your answers with aisignoff, opens a pull request, and the person reviews and approves it. You cannot run commands, change files or open pull requests, and you have no other tools.
+          SYSTEM = f"""You are the @signoff assistant of a GitHub repository that records how its files were made and reviewed in SIGNOFF.toml, with the tool aisignoff. A person with write access wrote "@signoff" and, in their own words, what to record. Turn the conversation into the answers of the repository's signoff request form, or ask for what is missing. You only suggest: a separate workflow checks your answers with aisignoff, opens a pull request, and the person reviews and approves it. You cannot run commands, change files or open pull requests, and you have no other tools.
 
           The form records one of three things:
           - kind "annotate": declare files, folders or globs: how they were made and reviewed. Needs generation, human and ai_review.
@@ -304,7 +294,7 @@ jobs:
           How to answer:
           - status "ready" only when every needed answer is stated or clearly implied by the person; then "message" says in one or two sentences what you understood.
           - status "need_info" when something needed is missing, ambiguous or contradictory; never guess levels, names or models. "message" asks the person short, concrete questions, at most four, in a Markdown list, and may name the options (e.g. the level descriptions). Fill in what is already clear.
-          - status "not_a_request" when the person asks something else (e.g. what a level means); "message" answers briefly, or says what {CMD} can do.
+          - status "not_a_request" when the person asks something else (e.g. what a level means); "message" answers briefly, or says what @signoff can do.
           - The person asking is {person}. "I", "me" refer to them. If they say they checked the files themselves and give no other name, the name on GitHub may be used for "responsible"; say so in "message".
           - "notes": anything the person said that a reviewer should know, briefly; else empty.
           - Write in the language the person writes in. Do not mention anyone with @ except the person asking.
@@ -349,17 +339,17 @@ jobs:
                       r = client.messages.create(**params)
               except anthropic.APIStatusError as e:
                   print(f"::error::Claude API: {e.status_code} {e.message}")
-                  comment(f"@{REQUESTER}, {ME} couldn't reach Claude just now "
+                  comment(f"@{REQUESTER}, the @signoff assistant couldn't reach Claude just now "
                           f"(error {e.status_code}). Try again later, or use the form **Signoff: declare or attest files**.")
                   sys.exit(1)
               except anthropic.APIConnectionError as e:
                   print(f"::error::Claude API: {e}")
-                  comment(f"@{REQUESTER}, {ME} couldn't reach Claude just now. Try again later, "
+                  comment(f"@{REQUESTER}, the @signoff assistant couldn't reach Claude just now. Try again later, "
                           "or use the form **Signoff: declare or attest files**.")
                   sys.exit(1)
               if r.stop_reason != "end_turn":
                   print(f"::error::Claude stopped with {r.stop_reason}")
-                  comment(f"@{REQUESTER}, {ME} couldn't handle this request. Please use the form "
+                  comment(f"@{REQUESTER}, the @signoff assistant couldn't handle this request. Please use the form "
                           "**Signoff: declare or attest files**.")
                   sys.exit(1)
               history.append({"role": "assistant", "content": r.content})
@@ -457,8 +447,8 @@ jobs:
                   text = (f"@{REQUESTER}, I couldn't put together a request that passes the repository's checks:\n\n"
                           + "\n".join(f"- {safe(p)}" for p in problems) + (f"\n\n{message}" if message else ""))
               if answers["status"] != "not_a_request":
-                  text += f"\n\nReply with `{CMD}` and the missing details, or use the form **Signoff: declare or attest files**."
-              comment(text + f"\n\n<sub>Answered by {ME} ({MODEL_NAME}). An AI can be wrong.</sub>")
+                  text += "\n\nReply with `@signoff` and the missing details, or use the form **Signoff: declare or attest files**."
+              comment(text + f"\n\n<sub>Answered by the @signoff assistant ({MODEL_NAME}). An AI can be wrong.</sub>")
               print(f"Status: {answers['status']}; nothing handed on.")
               sys.exit(0)
 
@@ -474,7 +464,7 @@ jobs:
               ("Did an AI review it?", LEVELS.get(answers["ai_review"], "_No response_")),
               ("Which model reviewed it, and how?", lines(answers["ai_reviewers"])),
               ("Notes for the reviewer", answers["notes"].strip() or "_No response_"),
-              ("Confirmation", f"- [X] Asked for by @{REQUESTER} with `{CMD}`; they review the pull request before it is merged."),
+              ("Confirmation", f"- [X] Asked for by @{REQUESTER} with @signoff; they review the pull request before it is merged."),
           ]
           request = "\n\n".join(f"### {k}\n\n{v}" for k, v in fields) + "\n"
 
@@ -483,7 +473,7 @@ jobs:
           comment(f"@{REQUESTER}: {message}\n\n**{KIND_ANSWER[answers['kind']]}**\n\n"
                   "| | |\n|---|---|\n" + "\n".join(f"| {k} | {cell(v)} |" for k, v in shown)
                   + "\n\nThe signoff bot now checks this and opens a pull request for you to review. "
-                  f"\n\n<sub>Read by {ME} ({MODEL_NAME}). An AI can be wrong: check the pull request.</sub>")
+                  f"\n\n<sub>Read by the @signoff assistant ({MODEL_NAME}). An AI can be wrong: check the pull request.</sub>")
           output(request=request, requester=REQUESTER, **{"requester-id": str(REQUESTER_ID), "model-name": MODEL_NAME})
           PY
 
@@ -501,7 +491,6 @@ jobs:
       requester: ${{ needs.assist.outputs.requester }}
       requester-id: ${{ needs.assist.outputs.requester-id }}
       assistant-model: ${{ needs.assist.outputs.model-name }}
-      assistant-command: ${{ inputs.command }}
       aisignoff-version: ${{ inputs.aisignoff-version }}
       dispatch-workflows: ${{ inputs.dispatch-workflows }}
       app-id: ${{ inputs.app-id }}

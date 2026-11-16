@@ -17,7 +17,7 @@
 # and PR-signoff runs once the requester edits the description; it needs "Allow GitHub Actions to create
 # and approve pull requests" (SETUP.md, section 1). An app's pull requests start the checks as usual.
 #
-# Signoff-Assistant (the @signoff / @IMGAgent signoff assistant, Claude API) calls it with the answers it read from a
+# Signoff-Assistant (the @signoff assistant, Claude API) calls it with the answers it read from a
 # conversation (inputs request, requester, requester-id, assistant-model); they go through the same checks,
 # and the pull request ticks G1 and the model instead of G0 (A0: no other AI session reviewed it).
 #
@@ -58,10 +58,6 @@ on:
         description: From Signoff-Assistant, with request; the model that read the answers, as it is declared
         type: string
         default: ""
-      assistant-command:
-        description: From Signoff-Assistant, with request; what people write to call it, e.g. "@IMGAgent signoff"
-        type: string
-        default: "@signoff"
     secrets:
       app-private-key:
         description: Private key of that GitHub App
@@ -107,7 +103,6 @@ jobs:
           SIGNOFF_REQUESTER: ${{ inputs.requester }}
           SIGNOFF_REQUESTER_ID: ${{ inputs.requester-id }}
           SIGNOFF_ASSISTANT: ${{ inputs.assistant-model }}
-          SIGNOFF_ASSISTANT_COMMAND: ${{ inputs.assistant-command }}
         run: |
           python3 - <<'PY'
           import base64, json, os, re, subprocess, sys, urllib.error, urllib.parse, urllib.request
@@ -123,10 +118,9 @@ jobs:
           DRY_RUN = os.environ.get("SIGNOFF_DRY_RUN") == "1"   # for testing outside Actions: print the API calls
           ISSUE = EVENT["issue"]
           NUMBER = ISSUE["number"]
-          # Called by the signoff assistant: the answers it read from the conversation, and who asked.
+          # Called by the @signoff assistant: the answers it read from the conversation, and who asked.
           ASSISTANT = os.environ.get("SIGNOFF_ASSISTANT", "")
           ASKED = os.environ.get("SIGNOFF_REQUEST", "")
-          ASSISTANT_CMD = os.environ.get("SIGNOFF_ASSISTANT_COMMAND") or "@signoff"
           REQUESTER = os.environ.get("SIGNOFF_REQUESTER") or ISSUE["user"]["login"]
           REQUESTER_ID = os.environ.get("SIGNOFF_REQUESTER_ID") or ISSUE["user"]["id"]
           DEFAULT_BRANCH = EVENT["repository"]["default_branch"]
@@ -194,7 +188,7 @@ jobs:
 
 
           def reject(problems, output=""):
-              again = (f"Reply with `{ASSISTANT_CMD}` and what to change." if ASKED else
+              again = ("Reply with `@signoff` and what to change." if ASKED else
                        "Edit the issue to fix this; the bot runs again on each edit.")
               lines = [f"**The request couldn't be turned into a pull request.** {again}", ""] + [f"- {p}" for p in problems]
               if output:
@@ -345,7 +339,7 @@ jobs:
 
           if ASSISTANT:
               summary = [
-                  f"Records signoff request #{NUMBER} by @{REQUESTER} in `SIGNOFF.toml`. The `{ASSISTANT_CMD}` assistant "
+                  f"Records signoff request #{NUMBER} by @{REQUESTER} in `SIGNOFF.toml`. The @signoff assistant "
                   f"({ASSISTANT}) read the answers from the conversation; the signoff bot checked them and wrote "
                   "them with aisignoff. **An AI can misread: check every path, level and name.**", "",
                   fence(diff, "diff"), "",

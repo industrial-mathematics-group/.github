@@ -20,8 +20,8 @@ jobs:
       (github.event.action != 'edited' || github.event.changes.body)
     uses: industrial-mathematics-group/.github/.github/workflows/signoff-request.yml@main
     with:
-      app-id: ${{ vars.IMGAGENT_APP_ID }}   # the IMGAgent app; empty: github-actions[bot]
+      app-id: ${{ vars.SIGNOFF_APP_ID }}   # the organisation's signoff bot app; empty: github-actions[bot]
     #   dispatch-workflows: file-signoff.yml   # without the app: the file name of your File-signoff workflow
     #   aisignoff-version: "1.0.0rc8"          # keep it at File-signoff's
     secrets:
-      app-private-key: ${{ secrets.IMGAGENT_PRIVATE_KEY }}
+      app-private-key: ${{ secrets.SIGNOFF_APP_PRIVATE_KEY }}
