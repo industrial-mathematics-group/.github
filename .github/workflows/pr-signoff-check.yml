@@ -1,0 +1,16 @@
+name: PR-signoff
+
+# This repository's own check of the AI declaration in each pull request, with the reusable workflow next to it.
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-signoff:
+    uses: ./.github/workflows/pr-signoff.yml
