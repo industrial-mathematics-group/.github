@@ -11,7 +11,9 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/workflows/signoff-badges.yml` | Reusable workflow *Signoff-Badges*: publishes the README badges of the PR declarations |
 | `.github/workflows/file-signoff.yml` | Reusable workflow *File-signoff*: file-level declarations with aisignoff (lint + badges) |
 | `.github/workflows/signoff-request.yml`, `.github/ISSUE_TEMPLATE/signoff-request.yml` | Reusable workflow *Signoff-Request* and its issue form: a `SIGNOFF.toml` change from an issue, without AI |
-| `.github/workflows/signoff-assistant.yml` | Reusable workflow *Signoff-Assistant*: the `@signoff` assistant, which turns a request in plain words into the form's answers with the Claude API and hands them to Signoff-Request |
+| `.github/workflows/signoff-assistant.yml` | Reusable workflow *Signoff-Assistant*: `@IMGAgent signoff`, which turns a request in plain words into the form's answers with the Claude API and hands them to Signoff-Request |
+| `.github/workflows/imgagent-docs-ask.yml`, `imgagent-docs-writer.yml`, `imgagent/` | IMGAgent's docs commands: `@IMGAgent docs ask` answers from `docs/`, `@IMGAgent docs make` / `update` write `docs/` from the code as a pull request |
+| `workflow-templates/imgagent.yml` | The one caller per repository that routes every `@IMGAgent` command (see [IMGAgent](#imgagent-the-organisations-bot)) |
 | `.github/workflows/claude.yml`, `claude/` | The @claude assistant (see [below](#the-claude-assistant)) |
 | `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
@@ -83,7 +85,7 @@ For repositories with results, data or papers, or with casual single-commit uplo
 
 3. Optionally require the status check **`file-signoff / lint`** on `main`.
 4. Optionally add **Signoff-Request** (*Actions → New workflow*), see [below](#signoff-requests-from-issues).
-5. Optionally add **Signoff-Assistant (@signoff)** next to it, see [below](#the-signoff-assistant).
+5. Optionally add **IMGAgent** next to it for `@IMGAgent signoff`, see [below](#the-signoff-assistant).
 
 Both systems can run side by side: the PR check and its badges describe changes, aisignoff describes files. They use different badge files on the same `badges` branch.
 
@@ -104,12 +106,10 @@ issue form ──► Signoff-Request: aisignoff annotate / attest, lint ──�
 
 - **Per repository:** *Actions → New workflow* → **Signoff-Request**. It needs *File-signoff* and a `SIGNOFF.toml`.
   If your File-signoff workflow file isn't called `file-signoff.yml`, set `dispatch-workflows` in the caller.
-- **Bot account (optional, recommended).** By default the bot is `github-actions[bot]`. To give it its own name,
-  create a GitHub App once for the organisation (*Organisation settings → Developer settings → GitHub Apps → New*):
-  no webhook, repository permissions **Contents**, **Pull requests** and **Issues** read and write; install it on
-  the repositories with Signoff-Request. Then add the organisation variable `SIGNOFF_APP_ID` (its App ID) and the
-  organisation secret `SIGNOFF_APP_PRIVATE_KEY` (a private key generated on the app's page), both for the same
-  repositories. The caller passes them on; without them the workflow falls back to `github-actions[bot]`.
+- **Bot account (optional, recommended).** By default the bot is `github-actions[bot]`. With the IMGAgent app
+  ([below](#imgagent-the-organisations-bot)) and its organisation variable `IMGAGENT_APP_ID` and secret
+  `IMGAGENT_PRIVATE_KEY`, it acts as `imgagent[bot]`. The caller passes them on; without them the workflow falls
+  back to `github-actions[bot]`.
 - **With the app,** its pull requests start File-signoff and PR-signoff like anyone's; PR-signoff fails until the
   requester ticks, and reads "Responsible person" because the author is a bot.
 - **Without the app,** the workflow needs "Allow GitHub Actions to create and approve pull requests" (section 1; a
@@ -129,16 +129,16 @@ issue form ──► Signoff-Request: aisignoff annotate / attest, lint ──�
 ### The @signoff assistant
 
 Lets group members ask for the same pull request in their own words instead of filling in the form. They write
-`@signoff` in a new issue or a comment, e.g. "@signoff I wrote results/convergence/ with Claude Opus 5.5, which
+`@IMGAgent signoff` in a new issue or a comment, e.g. "@IMGAgent signoff I wrote results/convergence/ with Claude Opus 5.5, which
 also checked its work; I reran the study and read the important parts." *Signoff-Assistant* sends the
 conversation, the repository's file list, `SIGNOFF.toml` and the recent commits to the Claude API, which fills in
 the form's answers. They are checked like the form's, and with `aisignoff annotate` / `attest` and `lint` on a
 scratch copy of `main`; what fails goes back to Claude once, and what is still missing or ambiguous becomes
-questions in a comment, answered with another `@signoff` comment. Complete answers go to *Signoff-Request*, which
+questions in a comment, answered with another `@IMGAgent signoff` comment. Complete answers go to *Signoff-Request*, which
 checks them again and opens the pull request. Claude only suggests; the requester reviews, ticks and merges:
 
 ```
-@signoff + plain words ──► Claude: the form's answers ──► form checks + aisignoff (scratch copy of main)
+@IMGAgent signoff + words ► Claude: the form's answers ──► form checks + aisignoff (scratch copy of main)
    ▲   comment: questions, or what fails      │ missing, ambiguous or refused     │ complete
    └──────────────────────────────────────────┘                                   ▼
           Signoff-Request: aisignoff, lint ──► branch + PR (G1, model and A0 ticked) ──► requester ticks H0–H3 ──► merge
@@ -148,10 +148,10 @@ checks them again and opens the pull request. Claude only suggests; the requeste
   [the @claude assistant](#once-for-the-organisation) (step 2 and 3; an API key in a Console workspace with a
   spend limit). Give the repositories with Signoff-Assistant access to it. The assistant reads no other secret
   but the bot app's, and the key is only in the step that calls the model.
-- **Per repository:** *Signoff-Request* first, then *Actions → New workflow* → **Signoff-Assistant (@signoff)**.
-  Without access to the secret, `@signoff` gets a comment that points to the form, and nothing else happens.
-  If your File-signoff workflow file isn't called `file-signoff.yml`, set `dispatch-workflows` as in the
-  Signoff-Request caller.
+- **Per repository:** *Signoff-Request* first, then *Actions → New workflow* → **IMGAgent** (its `signoff` job).
+  Without access to the secret, `@IMGAgent signoff` gets a comment that points to the form, and nothing else
+  happens. If your File-signoff workflow file isn't called `file-signoff.yml`, set `dispatch-workflows` as in the
+  Signoff-Request caller. Older callers of Signoff-Assistant without the input `command` keep answering `@signoff`.
 - **Model:** `claude-sonnet-5-5` by default (inputs `model` and `model-name`, change both together; `effort`).
   A request costs a few cents, mostly for the file list.
 - **The pull request** ticks **G1**, the model and **A0** instead of G0, since an AI turned the requester's words
@@ -161,6 +161,76 @@ checks them again and opens the pull request. Claude only suggests; the requeste
   schema whose values are checked and passed to aisignoff as separate arguments, never to a shell. Its comments
   can't mention other people or carry the workflows' hidden markers. No code of the repository runs.
 - Issues made with the form and pull requests are left alone; edited comments don't start it again (write a new one).
+
+## IMGAgent: the organisation's bot
+
+All of the organisation's comment commands run as one GitHub App, **IMGAgent**, from one caller per repository
+(`workflow-templates/imgagent.yml`, *Actions → New workflow* → **IMGAgent**). The jobs are the reusable workflows
+in this repository; the caller only decides which one a comment starts:
+
+| Command | What happens | Reusable workflow |
+|---|---|---|
+| `@IMGAgent signoff <in your own words>` (issue or comment) | Claude turns the request into a `SIGNOFF.toml` pull request, or asks what is missing | `signoff-assistant.yml` → `signoff-request.yml` |
+| `@IMGAgent docs ask <question>` (start of a comment, or a new issue) | Claude answers from `docs/` | `imgagent-docs-ask.yml` |
+| `@IMGAgent docs make [hint]` (start of a comment) | Claude rebuilds `docs/` from the code and opens a pull request | `imgagent-docs-writer.yml` |
+| `@IMGAgent docs update [hint]` (start of a comment) | Claude fixes what is outdated in `docs/` and opens a pull request | `imgagent-docs-writer.yml` |
+
+The app is only an identity. GitHub Actions listens for the comments (`issues` and `issue_comment` events in each
+repository's caller) and the jobs use a short-lived token of the app (`actions/create-github-app-token`), so the
+app needs **no webhook and no server**. The issue form keeps its own caller, *Signoff-Request*, with the same app.
+
+### The name
+
+A plain `@IMGAgent` in a comment links to (and would notify) whatever GitHub account is called `IMGAgent`, so the
+organisation owns that name: **create a free organisation `IMGAgent`** (*github.com/organizations/plan*) and leave
+it empty. Mentioning an organisation notifies nobody, and the workflows only match the text. GitHub only lets an
+App use an existing account's name if that account is the App's owner, which is why the App is registered under
+that organisation (step 1). The bot then shows as `imgagent[bot]` in comments, commits and pull requests.
+
+### Once for the organisation
+
+1. **Register the App** under the `IMGAgent` organisation: *github.com/organizations/IMGAgent/settings/apps →
+   New GitHub App*.
+   - **Name** `IMGAgent`; **Homepage URL** `https://github.com/industrial-mathematics-group`; a logo from `logos/`.
+   - **Webhook:** untick **Active** (no URL, no events to subscribe to). Callback URL, setup URL, device flow:
+     leave empty.
+   - **Repository permissions:** **Contents** read and write (push branches), **Issues** read and write (comments,
+     reactions), **Pull requests** read and write (open and edit pull requests); **Metadata** read-only is set
+     automatically (it also covers the write-access check). Nothing else, and no organisation or account
+     permissions. Leave **Workflows** off: IMGAgent never changes `.github/workflows/`.
+   - **Where can this GitHub App be installed?** **Any account**, because it is owned by `IMGAgent` and installed
+     on `industrial-mathematics-group`. Nobody else gets anything from installing it: without the private key no
+     workflow can act as it.
+2. **Generate a private key** on the App's page (*Private keys → Generate*) and note the **App ID** at the top.
+3. **Install the App** on `industrial-mathematics-group` (*Install App* on the App's page): *Only select
+   repositories*, the ones with an IMGAgent caller (e.g. `aisignoff-playground`, `agent-sandbox`).
+4. **Organisation variable and secrets** in `industrial-mathematics-group` (*Settings → Secrets and variables →
+   Actions*), each with repository access for the same repositories:
+   - variable `IMGAGENT_APP_ID`: the App ID,
+   - secret `IMGAGENT_PRIVATE_KEY`: the whole `.pem` file, including the `BEGIN` / `END` lines,
+   - secret `ANTHROPIC_API_KEY`: as for [the @claude assistant](#once-for-the-organisation) (a Console key with a
+     spend limit). On GitHub Free, organisation secrets reach public repositories only; private repositories
+     then need them as repository secrets.
+5. **Retire the old names** once every caller uses IMGAgent: the variables and secrets `SIGNOFF_APP_ID`,
+   `SIGNOFF_APP_PRIVATE_KEY`, `DOCS_BOT_APP_ID` and `DOCS_BOT_APP_PRIVATE_KEY`, and the old apps behind them.
+
+### Per repository
+
+- *Actions → New workflow* → **IMGAgent**, and delete the jobs the repository doesn't use. `docs make` and
+  `docs update` need a Zensical site (`docs/` and a `zensical.toml` with a `nav = [ ... ]` block); `docs ask`
+  only needs `docs/`; `signoff` needs Signoff-Request and a `SIGNOFF.toml`.
+- Optional inputs: `project-about` and `audience` (what Claude is told the project is and who reads the docs;
+  default the repository's description), `docs-url` (where answers link to; default
+  `https://<owner>.github.io/<repo>/`), `model`.
+- Without `IMGAGENT_APP_ID` every job falls back to `github-actions[bot]`; its pull requests then start no checks,
+  and the repository needs "Allow GitHub Actions to create and approve pull requests".
+
+### Who can use it
+
+Only people with write access (owner, member or collaborator for the docs commands, the repository permission for
+`signoff`), never bots, so the bot can't start itself and strangers can't spend the API credit. Comment text is
+passed through environment variables, never pasted into a shell. Nothing is pushed to the default branch: every
+change is a pull request that a person reviews, ticks and merges.
 
 ## The @claude assistant
 

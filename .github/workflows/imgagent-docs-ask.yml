@@ -1,0 +1,129 @@
+# Reusable workflow: IMGAgent answers a question about a repository's documentation (docs/) with Claude.
+# Called from each repository's IMGAgent caller (workflow-templates/imgagent.yml) for
+#   @IMGAgent docs ask How do I add a host to the network allowlist?
+# in an issue comment, a pull request comment or a new issue. Moved here from agent-sandbox's docs-bot.yml.
+#
+# The whole docs/ folder goes into the system prompt (no search index); prompt caching makes questions that
+# come in within a few minutes of each other cheap. The script is imgagent/docs/ask.py in this repository.
+#
+# Security: the caller only starts it for people with write access and never for bots. The question is passed
+# through environment variables, never pasted into a shell with ${{ }}. The repository's code is not run.
+name: IMGAgent docs ask
+
+on:
+  workflow_call:
+    inputs:
+      command:
+        description: The command as it is written in the comment; the question is the text after it
+        type: string
+        default: "@IMGAgent docs ask"
+      model:
+        description: Claude model ID
+        type: string
+        default: claude-haiku-5-5
+      project-name:
+        description: The project's name for Claude; default the repository's name
+        type: string
+        default: ""
+      project-about:
+        description: One sentence on what the project is; default the repository's description
+        type: string
+        default: ""
+      docs-url:
+        description: The published site, linked in answers; default https://<owner>.github.io/<repo>/, "none" for no links
+        type: string
+        default: ""
+      bot-ref:
+        description: Git ref of industrial-mathematics-group/.github to read imgagent/docs/ask.py from
+        type: string
+        default: main
+      app-id:
+        description: ID of the IMGAgent GitHub App (with the secret app-private-key); empty posts as github-actions[bot]
+        type: string
+        default: ""
+    secrets:
+      anthropic-api-key:
+        description: Claude API key
+        required: true
+      app-private-key:
+        description: Private key of the IMGAgent GitHub App
+        required: false
+
+jobs:
+  answer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Token of IMGAgent
+        id: app
+        if: inputs.app-id != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ inputs.app-id }}
+          private-key: ${{ secrets.app-private-key }}
+
+      - name: Acknowledge
+        if: github.event.comment.id
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content=eyes > /dev/null
+
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+          sparse-checkout: docs
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: industrial-mathematics-group/.github
+          ref: ${{ inputs.bot-ref }}
+          path: bot
+          sparse-checkout: imgagent
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.13" }
+      - run: pip install anthropic==2.8.0
+
+      - name: Ask Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          DOCS_BOT_MODEL: ${{ inputs.model }}
+          REPO_ROOT: repo
+          DOCS_PROJECT: ${{ inputs.project-name || github.event.repository.name }}
+          DOCS_ABOUT: ${{ inputs.project-about || github.event.repository.description }}
+          DOCS_URL_INPUT: ${{ inputs.docs-url }}
+          COMMAND: ${{ inputs.command }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ANSWER_FILE: answer.md
+        run: |
+          case "$DOCS_URL_INPUT" in
+            none) DOCS_URL="" ;;
+            "") DOCS_URL="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/" ;;
+            *) DOCS_URL="$DOCS_URL_INPUT" ;;
+          esac
+          export DOCS_URL
+          # The question: the comment (or the new issue) with the command taken out, matched case-insensitively.
+          if [ -n "$COMMENT_BODY" ]; then TEXT="$COMMENT_BODY"; else TEXT="$ISSUE_TITLE"$'\n\n'"$ISSUE_BODY"; fi
+          QUESTION="$(python3 -c 'import os, re, sys
+          print(re.sub(re.escape(os.environ["COMMAND"]).replace(r"\ ", r"\s+"), "", sys.stdin.read(), count=1, flags=re.I).strip())' <<< "$TEXT")"
+          export QUESTION
+          if [ -z "$QUESTION" ]; then
+            printf 'Write your question after `%s`.\n' "$COMMAND" > answer.md
+          else
+            python bot/imgagent/docs/ask.py
+          fi
+          printf '\n---\n<sub>Answered by IMGAgent with Claude from the docs in this repository; it can be wrong.</sub>\n' >> answer.md
+
+      - name: Post the answer
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: gh api "repos/$GITHUB_REPOSITORY/issues/$NUMBER/comments" -F body=@answer.md > /dev/null

@@ -1,0 +1,6 @@
+{
+  "name": "IMGAgent (@IMGAgent signoff, @IMGAgent docs)",
+  "description": "The organisation's bot as one GitHub App: \"@IMGAgent signoff\" turns a request in plain words into a SIGNOFF.toml pull request, \"@IMGAgent docs ask\" answers from docs/, \"@IMGAgent docs make\" and \"docs update\" write docs/ from the code as a pull request.",
+  "iconName": "octicon comment-discussion",
+  "filePatterns": ["SIGNOFF.toml$", "zensical.toml$"]
+}
