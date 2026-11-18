@@ -13,6 +13,8 @@ on:
 permissions:
   contents: write
   pull-requests: write   # only for the setup pull request in a repository without SIGNOFF.toml
+  # pages: write          # with "pages: true" below: publish the report on GitHub Pages
+  # id-token: write       # (both lines, and Settings → Pages → Source: "GitHub Actions")
 
 jobs:
   file-signoff:
@@ -23,3 +25,5 @@ jobs:
     #   setup: false                  # no setup pull request without SIGNOFF.toml
     #   setup-recheck: minor          # [review] recheck of the set-up SIGNOFF.toml ("" leaves it out)
     #   setup-history: false          # set up SIGNOFF.toml without [history]
+    #   pages: true                   # publish the folder report on GitHub Pages (replaces the Pages site)
+    #   pages-path: /aisignoff/       # where in the site: https://<owner>.github.io/<repo>/aisignoff/ ("/": the root)

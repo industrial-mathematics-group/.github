@@ -94,6 +94,14 @@ For repositories with results, data or papers, or with casual single-commit uplo
    workflow pushes the branch and its job summary links to a new pull request with the description to paste.
    Inputs: `setup: false` turns it off, `setup-recheck` (`""` leaves `[review]` out) and `setup-history` change the
    defaults.
+
+   **The report on GitHub Pages (optional).** With `pages: true`, *File-signoff* also publishes the interactive
+   folder report on every push to `main` (and manual run), at `https://industrial-mathematics-group.github.io/<repo>/aisignoff/`
+   (input `pages-path`, default `/aisignoff/`; `/` puts it at the root), with a redirect to it at the root of the
+   site. It needs *Settings → Pages → Source: GitHub Actions* and, in the caller, `pages: write` and
+   `id-token: write` (commented out in the template). A deployment replaces the whole Pages site: in a repository
+   whose Pages site is its documentation, leave it off and put the report into the documentation instead. The
+   report shows the text of every file, like a public repository; Pages of a private repository need a paid plan.
 3. Optionally require the status check **`file-signoff / lint`** on `main`.
 4. Optionally install the IMGAgent App on the repository for the signoff form and `@IMGAgent signoff`, see
    [below](#signoff-requests-the-form-and-imgagent).

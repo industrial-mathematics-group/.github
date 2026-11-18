@@ -10,6 +10,11 @@
 #           with every level TODO for a person to fill in). Needs "pull-requests: write" in the caller; without
 #           it, the branch is pushed and the job summary links to it. Once the branch exists (open, closed or
 #           merged PR), nothing more is done: delete the branch to get a new setup pull request.
+#   pages   opt-in (pages: true), pushes to the default branch and manual runs: publishes the interactive folder
+#           report of lint on GitHub Pages, at <site>/aisignoff/ (input pages-path), with a redirect to it at the
+#           root of the site. A deployment replaces the whole Pages site, so not for repositories whose Pages site
+#           is their documentation (write the report into the documentation instead). Needs Settings → Pages →
+#           Source: "GitHub Actions", and "pages: write" and "id-token: write" in the caller.
 # Called from each repository (see workflow-templates/file-signoff.yml).
 name: File-signoff
 
@@ -36,6 +41,14 @@ on:
         description: Turn on [history] (line-level declarations from git history) in the set-up SIGNOFF.toml
         type: boolean
         default: true
+      pages:
+        description: Publish the interactive folder report on GitHub Pages (pushes to the default branch and manual runs)
+        type: boolean
+        default: false
+      pages-path:
+        description: Folder of the Pages site for the report ("/aisignoff/" is https://<owner>.github.io/<repo>/aisignoff/; "/" the root)
+        type: string
+        default: /aisignoff/
 
 jobs:
   lint:
@@ -148,6 +161,75 @@ jobs:
             echo "Push rejected (attempt $attempt), retrying ..."; sleep $((attempt * 3))
           done
           echo "Could not publish the badges." >&2; exit 1
+
+  pages:
+    # The report that lint wrote and uploaded (also when lint fails, so the site shows what is undeclared).
+    if: >-
+      !cancelled() && inputs.pages && needs.lint.outputs.configured == 'true' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: lint
+    runs-on: ubuntu-latest
+    # No permissions key: the job gets the caller's token, which needs "pages: write" and "id-token: write".
+    # Asking for them here would make every caller without them fail to start, also with pages off.
+    environment:
+      name: github-pages
+      url: ${{ steps.url.outputs.url }}
+    concurrency:
+      group: pages-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: aisignoff-report
+          path: ${{ runner.temp }}/report
+      - name: Put the report into the site
+        id: site
+        env:
+          PAGES_PATH: ${{ inputs.pages-path }}
+          SITE: ${{ runner.temp }}/site
+        run: |
+          set -euo pipefail
+          # "/aisignoff/", "aisignoff" and "aisignoff/" are the same folder; "/" or "" the root of the site
+          P="${PAGES_PATH#/}"; P="${P%/}"
+          if [ -n "$P" ] && ! [[ "$P" =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] || [[ "/$P/" == */../* || "/$P/" == */./* ]]; then
+            echo "::error::pages-path must be a folder like /aisignoff/ (letters, digits, '.', '_', '-' and '/'), not '$PAGES_PATH'"
+            exit 1
+          fi
+          mkdir -p "$SITE/$P"
+          cp "$RUNNER_TEMP/report/aisignoff-report.html" "$SITE/$P/index.html"
+          if [ -n "$P" ]; then
+            # the root of the site would be a 404 otherwise
+            printf '%s\n' '<!doctype html><meta charset="utf-8"><title>AI signoff report</title>' \
+              "<meta http-equiv=\"refresh\" content=\"0; url=./$P/\">" \
+              "<link rel=\"canonical\" href=\"./$P/\"><a href=\"./$P/\">AI signoff report</a>" > "$SITE/index.html"
+            echo "folder=$P/" >> "$GITHUB_OUTPUT"
+          else
+            echo "folder=" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ runner.temp }}/site
+          name: aisignoff-pages
+      - id: deployment
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: aisignoff-pages
+      - name: Summary
+        id: url
+        if: always()
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          FOLDER: ${{ steps.site.outputs.folder }}
+          OUTCOME: ${{ steps.deployment.outcome }}
+        run: |
+          if [ "$OUTCOME" = success ]; then
+            URL="${PAGE_URL%/}/$FOLDER"
+            echo "url=$URL" >> "$GITHUB_OUTPUT"
+            { echo '### AI signoff report on Pages'; echo; echo "Published at $URL"; } >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$OUTCOME" = failure ]; then
+            echo "::error title=aisignoff report on Pages::Couldn't deploy to GitHub Pages. Set Settings → Pages → Source to \"GitHub Actions\", and give the caller workflow \"pages: write\" and \"id-token: write\"."
+          fi
 
   setup:
     # Repositories without SIGNOFF.toml: a pull request that sets aisignoff up with the organisation's defaults.
