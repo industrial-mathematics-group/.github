@@ -48,7 +48,7 @@ on:
       pages-path:
         description: Folder of the Pages site for the report ("/aisignoff/" is https://<owner>.github.io/<repo>/aisignoff/; "/" the root)
         type: string
-        default: /aisignoff/
+        default: /signoff/
 
 jobs:
   lint:
