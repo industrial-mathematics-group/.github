@@ -61,7 +61,7 @@ the input `aisignoff-version`): one parser and one set of rules for the PR templ
   `exclude` or `[history]`, the entries of `.git-blame-ignore-revs` (or removes `SIGNOFF.toml`) fails, also for maintainers: they commit such changes to `main`
   directly (with `undeclared = "error"`, give the commit message "Key: value" lines, such as `AI-Generation: G0`).
   A repository can instead let PR authors with some permissions make them, with the input `allow-policy-change`
-  (for example `admin,maintain`; it needs aisignoff >= 1.0.0rc4): their PR is then still checked under the base
+  (for example `admin,maintain`; it needs aisignoff 1.0.0rc4 or later): their PR is then still checked under the base
   branch's `[policy]`, and the job summary says that it changes the rules. The permission is the PR author's, so
   anyone who can push to that PR's branch can add such a change.
   With this, *File-signoff* on pull requests checks the same files again; keep it for pushes, merge queues and
@@ -73,7 +73,7 @@ the input `aisignoff-version`): one parser and one set of rules for the PR templ
 
 For repositories with results, data or papers, or with casual single-commit uploads:
 
-1. **Once for the organisation:** the workflow installs aisignoff from PyPI, pinned by the input `aisignoff-version` of `.github/workflows/file-signoff.yml`. Raise the default there to update every repository at once, after checking the aisignoff changelog for **Breaking** changes; a repository can set `aisignoff-version` itself to differ.
+1. **Once for the organisation:** the workflow installs aisignoff from PyPI, pinned by the input `aisignoff-version` of `.github/workflows/file-signoff.yml`. Raise the default there to update every repository at once, after checking the aisignoff changelog for **Breaking** changes; a repository can set `aisignoff-version` itself to differ. aisignoff is back on 0.x versions: the order of releases is 0.14, 1.0.0rc1 to 1.0.0rc10, 0.15.0, so 0.15.0 has everything the release candidates had, and "1.0.0rcN or later" in these docs includes 0.15.0 ([Versions](https://industrial-mathematics-group.github.io/aisignoff/compatibility/#versions)). Pin an exact version; a range such as `>=1.0.0rc6` doesn't include 0.15.0.
 2. **Per repository:** add the **File-signoff** workflow (*Actions → New workflow*), and `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) or let the workflow set it up (below). It runs `aisignoff lint` on every push, PR and merge queue run, and on pushes to `main` it publishes the badges:
 
 ```markdown

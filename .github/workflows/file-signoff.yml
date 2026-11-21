@@ -3,7 +3,7 @@
 #           has no valid declaration; writes the level mix per folder to the job summary and uploads
 #           the interactive folder report as an artifact
 #   badges  pushes to the default branch: publishes aisignoff-generation.json, aisignoff-human-review.json,
-#           aisignoff-ai-review.json and aisignoff-findings.json (aisignoff >= 1.0.0rc9) to the orphan branch "badges"
+#           aisignoff-ai-review.json and aisignoff-findings.json (aisignoff 1.0.0rc9 or later) to the orphan branch "badges"
 #   setup   repositories without SIGNOFF.toml (lint and badges are skipped there, with a warning): on a push
 #           to the default branch or a manual run, opens a pull request from the branch "aisignoff-setup" that
 #           adds SIGNOFF.toml with the organisation's defaults ([history], a "**" annotation with every
@@ -24,7 +24,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI (pinned, so a new release can't change the check unannounced)
         type: string
-        default: "1.0.0rc10"
+        default: "0.15.0"
       weight:
         description: Badge weighting, "files" or "lines"
         type: string
