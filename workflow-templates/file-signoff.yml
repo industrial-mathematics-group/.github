@@ -21,9 +21,8 @@ jobs:
     uses: industrial-mathematics-group/.github/.github/workflows/file-signoff.yml@main
     # with:
     #   weight: lines                 # weight the badges by lines instead of files
-    #   aisignoff-version: "1.0.0rc8" # another release of aisignoff than the organisation's default
+    #   aisignoff-version: "1.0.0rc9" # another release of aisignoff than the organisation's default
     #   setup: false                  # no setup pull request without SIGNOFF.toml
-    #   setup-recheck: minor          # [review] recheck of the set-up SIGNOFF.toml ("" leaves it out)
     #   setup-history: false          # set up SIGNOFF.toml without [history]
     #   pages: true                   # publish the folder report on GitHub Pages (replaces the Pages site)
     #   pages-path: /aisignoff/       # where in the site: https://<owner>.github.io/<repo>/aisignoff/ ("/": the root)

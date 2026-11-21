@@ -7,12 +7,13 @@
 #   - the description on its own: G0-G3 (one), the highest ticked H0-H3, the highest ticked
 #     A0-A3 (none: A0), the models for G1-G3, the reviewing model for A1-A3 (for A2 and A3 a model that didn't
 #     write the change)
-#   - for A2 and A3: the line "AI-Review-Findings:" (below the threshold of [review] recheck in SIGNOFF.toml of
-#     the BASE branch) and the review report named in the box (a file the PR adds or changes, or a link; not read)
+#   - for A1, A2 and A3: the line "AI-Review-Findings:" (none or a severity; any severity passes, reports show it as
+#     the findings level F0-F3, aisignoff >= 1.0.0rc10); for A2 and A3 also the review report named in the box (a file
+#     the PR adds or changes, or a link; not read)
 #   - the responsible human: the PR author, or the "Responsible person: @login" line for PRs opened by bots
 #   - the minimum levels of the [policy] in SIGNOFF.toml of the BASE branch
 #   - in repositories with SIGNOFF.toml, every file and (with [history]) every line of the merged result
-#   - that the PR doesn't change [policy], [review], version, exclude or [history] of SIGNOFF.toml, or the entries of
+#   - that the PR doesn't change [policy], version, exclude or [history] of SIGNOFF.toml, or the entries of
 #     .git-blame-ignore-revs: such changes are committed
 #     to main directly. A repository can let PR authors with some permissions change them (input
 #     allow-policy-change); their PR is still checked under the base branch's [policy] (aisignoff >= 1.0.0rc4)
@@ -30,10 +31,10 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI; keep it at File-signoff's
         type: string
-        default: "1.0.0rc8"
+        default: "1.0.0rc10"
       allow-policy-change:
         description: >-
-          Repository permissions of PR authors who may change [policy], [review], version, exclude or [history] of SIGNOFF.toml, or .git-blame-ignore-revs,
+          Repository permissions of PR authors who may change [policy], version, exclude or [history] of SIGNOFF.toml, or .git-blame-ignore-revs,
           in a pull request, comma-separated (admin, maintain, write); "" (the default): nobody, such changes
           are committed to main directly. Needs aisignoff >= 1.0.0rc4, so that such a PR can't lower the bar for
           itself. The permission is the PR author's, not of whoever pushed to its branch.

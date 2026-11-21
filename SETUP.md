@@ -53,10 +53,11 @@ the input `aisignoff-version`): one parser and one set of rules for the PR templ
 `SIGNOFF.toml`.
 
 - **Every repository:** the ticked AI declaration must be complete on its own: the levels, the models (G1–G3),
-  the reviewing model (A1–A3) and the responsible human (the author, or `Responsible person: @login` for PRs
-  opened by bots). In a repository without `SIGNOFF.toml`, that's all it checks.
+  the reviewing model (A1–A3), the line `AI-Review-Findings:` (A1–A3;
+  any severity passes), the review report (A2, A3) and the responsible human (the author, or
+  `Responsible person: @login` for PRs opened by bots). In a repository without `SIGNOFF.toml`, that's all it checks.
 - **With `SIGNOFF.toml`:** also every file, and with `[history]` every line, of GitHub's merge preview, with the
-  `[policy]` of the base branch, so a PR can't lower the bar for itself. A PR that changes `[policy]`, `[review]`, `version`,
+  `[policy]` of the base branch, so a PR can't lower the bar for itself. A PR that changes `[policy]`, `version`,
   `exclude` or `[history]`, the entries of `.git-blame-ignore-revs` (or removes `SIGNOFF.toml`) fails, also for maintainers: they commit such changes to `main`
   directly (with `undeclared = "error"`, give the commit message "Key: value" lines, such as `AI-Generation: G0`).
   A repository can instead let PR authors with some permissions make them, with the input `allow-policy-change`
@@ -79,11 +80,15 @@ For repositories with results, data or papers, or with casual single-commit uplo
 [![AI generation (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-generation.json)](https://github.com/industrial-mathematics-group/aisignoff)
 [![Human review (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-human-review.json)](https://github.com/industrial-mathematics-group/aisignoff)
 [![AI review (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-ai-review.json)](https://github.com/industrial-mathematics-group/aisignoff)
+[![AI review findings (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-findings.json)](https://github.com/industrial-mathematics-group/aisignoff)
 ```
+
+   The findings badge (aisignoff 1.0.0rc9 or later) shows what the last independent AI review of each file found
+   (F0–F3, or F- where no review with findings has covered it since it last changed).
 
    **Without `SIGNOFF.toml`**, *File-signoff* skips the check with a warning, and on a push to `main` (or a manual
    run) it opens a pull request from the branch `aisignoff-setup` that adds a `SIGNOFF.toml` with the organisation's
-   defaults: `[review]` `recheck = "major"`, `[history]` on, and a `**` annotation with every level and
+   defaults: `[history]` on, and a `**` annotation with every level and
    `Reviewed-by` set to `TODO`. Someone fills in the `TODO`s (and annotates folders that differ), ticks a human
    review box in the description and merges; *File-signoff* fails on that pull request until no `TODO` is left. The
    pull request names the person whose push or run started the workflow as `Responsible person`. Checks start on the
@@ -92,8 +97,8 @@ For repositories with results, data or papers, or with casual single-commit uplo
    another. It needs `pull-requests: write` in the caller (in the template) and *Settings → Actions → General →
    Allow GitHub Actions to create and approve pull requests* for the organisation or repository; without them, the
    workflow pushes the branch and its job summary links to a new pull request with the description to paste.
-   Inputs: `setup: false` turns it off, `setup-recheck` (`""` leaves `[review]` out) and `setup-history` change the
-   defaults.
+   Inputs: `setup: false` turns it off, `setup-history: false` leaves `[history]` out. (`setup-recheck` only
+   applies to a repository that pins aisignoff before 1.0.0rc9; `[review]` `recheck` is gone since then.)
 
    **The report on GitHub Pages (optional).** With `pages: true`, *File-signoff* also publishes the interactive
    folder report on every push to `main` (and manual run), at `https://industrial-mathematics-group.github.io/<repo>/aisignoff/`

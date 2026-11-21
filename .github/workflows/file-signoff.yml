@@ -2,12 +2,12 @@
 #   lint    every push, pull request and merge queue run: fails if a file (or, with [history], a line)
 #           has no valid declaration; writes the level mix per folder to the job summary and uploads
 #           the interactive folder report as an artifact
-#   badges  pushes to the default branch: publishes aisignoff-generation.json,
-#           aisignoff-human-review.json and aisignoff-ai-review.json to the orphan branch "badges"
+#   badges  pushes to the default branch: publishes aisignoff-generation.json, aisignoff-human-review.json,
+#           aisignoff-ai-review.json and aisignoff-findings.json (aisignoff >= 1.0.0rc9) to the orphan branch "badges"
 #   setup   repositories without SIGNOFF.toml (lint and badges are skipped there, with a warning): on a push
 #           to the default branch or a manual run, opens a pull request from the branch "aisignoff-setup" that
-#           adds SIGNOFF.toml with the organisation's defaults ([review] recheck, [history], a "**" annotation
-#           with every level TODO for a person to fill in). Needs "pull-requests: write" in the caller; without
+#           adds SIGNOFF.toml with the organisation's defaults ([history], a "**" annotation with every
+#           level TODO for a person to fill in). Needs "pull-requests: write" in the caller; without
 #           it, the branch is pushed and the job summary links to it. Once the branch exists (open, closed or
 #           merged PR), nothing more is done: delete the branch to get a new setup pull request.
 #   pages   opt-in (pages: true), pushes to the default branch and manual runs: publishes the interactive folder
@@ -24,7 +24,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI (pinned, so a new release can't change the check unannounced)
         type: string
-        default: "1.0.0rc8"
+        default: "1.0.0rc10"
       weight:
         description: Badge weighting, "files" or "lines"
         type: string
@@ -34,9 +34,12 @@ on:
         type: boolean
         default: true
       setup-recheck:
-        description: '[review] recheck of the set-up SIGNOFF.toml (trivial, minor, major, critical; "": left commented out)'
+        description: >-
+          Only for aisignoff before 1.0.0rc9: [review] recheck of the set-up SIGNOFF.toml (trivial, minor, major,
+          critical; "": left commented out). From 1.0.0rc9 on findings are recorded, not a threshold, and a value
+          here only gives a warning
         type: string
-        default: major
+        default: ""
       setup-history:
         description: Turn on [history] (line-level declarations from git history) in the set-up SIGNOFF.toml
         type: boolean
@@ -132,7 +135,7 @@ jobs:
         run: aisignoff badge --out "$RUNNER_TEMP/aisignoff-badges" --weight "$WEIGHT"
       - name: Publish to the badges branch
         env:
-          FILES: aisignoff-generation.json aisignoff-human-review.json aisignoff-ai-review.json
+          FILES: aisignoff-generation.json aisignoff-human-review.json aisignoff-ai-review.json aisignoff-findings.json
           SRC: ${{ runner.temp }}/aisignoff-badges
           MESSAGE: Update AI file declaration badges
         run: |
@@ -141,6 +144,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           set -euo pipefail
+          # aisignoff-findings.json only from aisignoff 1.0.0rc9 on, for a repository that pins an older release
+          PRESENT=""
+          for f in $FILES; do if [ -f "$SRC/$f" ]; then PRESENT="$PRESENT $f"; fi; done
+          FILES="$PRESENT"
           WT="$RUNNER_TEMP/badges-worktree"
           for attempt in 1 2 3 4 5; do
             cd "$GITHUB_WORKSPACE"
@@ -283,11 +290,15 @@ jobs:
           # the "**" annotation with every level TODO, which lint reports until a person fills it in
           ARGS=(-g TODO -H TODO -a TODO)
           if aisignoff init --help | grep -q -- '--history'; then
-            if [ -n "$RECHECK" ]; then ARGS+=(--recheck "$RECHECK"); fi
+            # aisignoff 1.0.0rc9 on: no [review] recheck any more (a review's findings are recorded, not a threshold)
+            if [ -n "$RECHECK" ]; then
+              echo "::warning::setup-recheck is only for aisignoff before 1.0.0rc9, which had [review] recheck; leave it out"
+              RECHECK=""
+            fi
             if [ "$HISTORY" = true ]; then ARGS+=(--history); fi
             aisignoff init "${ARGS[@]}"
           else
-            # aisignoff before init --recheck/--history: uncomment [review] and add [history] by hand
+            # aisignoff before init --history: uncomment [review] and add [history] by hand
             aisignoff init "${ARGS[@]}"
             python3 - <<'PY'
           import os, pathlib
@@ -327,15 +338,16 @@ jobs:
                -H "Accept: application/vnd.github.raw" > "$RUNNER_TEMP/template.md" 2>/dev/null; then
             TEMPLATE="$RUNNER_TEMP/template.md"
           fi
-          TEMPLATE="$TEMPLATE" BODY="$RUNNER_TEMP/body.md" python3 - <<'PY'
+          RECHECK="$RECHECK" TEMPLATE="$TEMPLATE" BODY="$RUNNER_TEMP/body.md" python3 - <<'PY'
           import os, re
+          # [review] recheck only with aisignoff before 1.0.0rc9
+          review = f"- `[review]` recheck: {os.environ['RECHECK']}\n" if os.environ["RECHECK"] else ""
           intro = f"""## What does this PR change?
 
           This repository has no `SIGNOFF.toml`, so aisignoff isn't checking any files yet. The File-signoff workflow
           wrote one with `aisignoff init` and the organisation's defaults:
 
-          - `[review]` recheck: {os.environ["RECHECK"] or "left commented out"}
-          - `[history]` (line-level declarations from git history): {"on" if os.environ["HISTORY"] == "true" else "off"}
+          {review}- `[history]` (line-level declarations from git history): {"on" if os.environ["HISTORY"] == "true" else "off"}
           - a default annotation for `**` with every level and `Reviewed-by` set to `TODO`
 
           To finish it:

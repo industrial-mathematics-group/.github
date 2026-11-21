@@ -99,7 +99,7 @@ The A axis counts only review that is **independent of the session that wrote th
 
 - **A2: exactly one Markdown file,** with only the results. In this organisation it follows the [report template](https://github.com/industrial-mathematics-group/aisignoff/blob/main/examples/review-report.md).
 - **A3: the same report, plus the evidence:** new tests go into the test suite; other files (scripts, derivations, benchmark results) go into a folder with the report's name next to it.
-- **A1** needs no report.
+- **A1** needs no report, but gives its findings like A2 and A3 (below): what a context-free check by the model that wrote the change finds is the reference for what a different model finds at A2 and A3.
 
 The template keeps two lists apart:
 
@@ -115,9 +115,9 @@ The template keeps two lists apart:
 | **minor** | A limited effect, or an easy way around it | A wrong result in a rare edge case; a misleading error message; a missing test | An imprecise statement; an inconsistency between text and table that doesn't change a result |
 | **trivial** | No effect on results or behaviour | Naming, style, comments, typos | Wording, layout, typos |
 
-A fix for a minor or trivial finding needs no review of its own. A **major or critical finding in the change ends the review**: fix it, have the change reviewed again in a new session, and commit that review's report in place of the old one. A repository can move the threshold with `recheck` in the `[review]` table of its `SIGNOFF.toml`.
+The reviewer only reviews: it reports what it found and changes nothing in the change it reviews. Fixes are the author's. A fix for a minor or trivial finding needs no review of its own. A **major or critical finding in the change** should be fixed and the change reviewed again in a new session, with that review's report in place of the old one, before the change is merged; the check doesn't enforce this.
 
-The declaration repeats the report's highest finding in a line `AI-Review-Findings:`, in the PR template below the AI review boxes and in a commit message next to `AI-Review:`. The check (aisignoff 1.0.0rc8 or later) needs that line for A2 and A3, and the report named after `Model and report:`: a file that the PR adds or changes, or a link (an earlier review's report doesn't count). Next to A0 and A1 the line isn't read. It fails when the line says a severity from the threshold on. A severe finding that reached `main` anyway is cleared by the fix, declared with a new A2 or A3 review. It never reads the report: it is a guard against mistakes, and maintainers decide whether a report is in order.
+The declaration gives the review's highest finding in this change in a line `AI-Review-Findings:` (`none`, `trivial`, `minor`, `major` or `critical`), in the PR template below the AI review boxes and in a commit message next to `AI-Review:`. The check (aisignoff 1.0.0rc10 or later) needs that line for **A1, A2 and A3**, and for A2 and A3 also the report named after `Model and report:`: a file that the PR adds or changes, or a link (an earlier review's report doesn't count). Next to A0 the line isn't read. Any severity passes: the finding is recorded, not a threshold, and the reports show it as the findings level of the lines the review covered (F0 nothing open, F1 minor, F2 major, F3 critical open; F- not reviewed since the line last changed), until a later review of those lines finds it fixed. The check never reads the report: it is a guard against mistakes, and maintainers decide whether a report is in order.
 
 ### Minimum levels per repository
 
@@ -138,12 +138,12 @@ The **AI declaration** section of the PR template asks a few questions. Tick wha
 - **Generation:** tick exactly one of G0–G3.
 - **AI models:** for G1–G3, tick the model families that wrote parts of the change (Claude Fable, Opus or Sonnet; GPT Astra, Sol or Terra), or tick **Other** and write the tool and model after it, e.g. `Other: Gemini 3 Pro (Google)`. For G0, leave them all unticked.
 - **Human review:** tick the highest level you did. The levels build on each other, so H2 says H0 and H1 too; ticking those as well changes nothing.
-- **AI review:** tick the highest level that was done, or A0; the highest ticked one counts, and none ticked means A0. For A2 and A3, write the reviewing model and the report after `Model and report:` (e.g. `GPT Sol (OpenAI), reviews/pull12.md`); it must be a model that didn't write the change. Write the report's highest finding in this change after `AI-Review-Findings:`. For A1, the reviewing model is taken to be the one that wrote the change, in a new session, unless you name another after `Model, if not one of the above:`.
+- **AI review:** tick the highest level that was done, or A0; the highest ticked one counts, and none ticked means A0. For A2 and A3, write the reviewing model and the report after `Model and report:` (e.g. `GPT Sol (OpenAI), reviews/pull12.md`); it must be a model that didn't write the change. Write the report's highest finding in this change after `AI-Review-Findings:`. For A1, the reviewing model is taken to be the one that wrote the change, in a new session, unless you name another after `Model, if not one of the above:`; write what that session found after `AI-Review-Findings:` too (`none` if nothing).
 - **Responsible human:** the person who opens the PR; by ticking a human review level they take responsibility for the change, however it was created. A PR opened by a bot or app account adds a line `Responsible person: @login` naming a human instead. Dependency update bots (Dependabot, CompatHelper) skip the check.
 
-Keep the questions as they are in the template: the check reads only boxes outside comments and code blocks, and fails if a level is missing. The only line to fill in is `AI-Review-Findings:`, for A2 and A3; leftover `AI-Generation:`-style lines from the previous template next to ticked boxes are an error.
+Keep the questions as they are in the template: the check reads only boxes outside comments and code blocks, and fails if a level is missing. The only line to fill in is `AI-Review-Findings:`, for A1, A2 and A3; leftover `AI-Generation:`-style lines from the previous template next to ticked boxes are an error.
 
-The check is [aisignoff](https://github.com/industrial-mathematics-group/aisignoff) (`aisignoff lint --declare-from`), which reads the description exactly as the merge commit will carry it. In repositories with a `SIGNOFF.toml` it also checks every file (and with `[history]` every line) of the merged result, applies the repository's `[policy]` from `main`, and doesn't let a PR change `[policy]`, `exclude` or `[history]`: maintainers commit such changes to `main` directly.
+The check is [aisignoff](https://github.com/industrial-mathematics-group/aisignoff) (`aisignoff lint --declare-from`), which reads the description exactly as the merge commit will carry it. In repositories with a `SIGNOFF.toml` it also checks every file (and with `[history]` every line) of the merged result, applies the repository's `[policy]` from `main`, and doesn't let a PR change `[policy]`, `version`, `exclude` or `[history]`: maintainers commit such changes to `main` directly.
 
 The check runs on every PR into `main`, adds the labels `ai:G*`, `human:H*` and `ai-review:A*`, and shows the derived declaration in its job summary, in the same keys as `SIGNOFF.toml`. Our repositories merge PRs with a merge commit whose message is the **PR title and description**, so the ticked questions become part of the history on `main` and travel with the code into mirrors, forks and archived releases. Each repository can show badges summarising its declared history.
 
@@ -157,6 +157,7 @@ aisignoff init -g G0 -H H2 -a A0 --reviewed-by "Jane Doe"            # default f
 aisignoff annotate results/ -g G2 -H H1 -a A1 \
     --assisted-by "Claude Opus 5.5 (Anthropic)" \
     --ai-reviewed-by "Claude Opus 5.5 (Anthropic), new session without the generating conversation" \
+    --findings none \
     --reviewed-by "Jane Doe"                                       # the exceptions
 aisignoff lint                                                        # every file declared?
 ```

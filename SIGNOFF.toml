@@ -13,11 +13,9 @@ version = 4
 # "*" = { human = "H1" }
 # G3  = { human = "H2", ai = "A1" }
 
-# A commit or pull request that declares A2 or A3 says the highest severity its review found in
-# the change, in a line "AI-Review-Findings: minor". From this severity on (trivial, minor, major,
-# critical), the finding needs a new review, and lint fails (optional).
-# [review]
-# recheck = "major"
+# A commit or pull request that declares A1, A2 or A3 says the highest severity its review found in
+# the change, in a line "AI-Review-Findings: minor" (none, trivial, minor, major or critical).
+# Reports show it as the findings level F0-F3 of the lines the review covered.
 
 # Default for everything
 [[annotations]]
