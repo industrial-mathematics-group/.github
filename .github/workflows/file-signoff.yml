@@ -24,7 +24,7 @@ on:
       aisignoff-version:
         description: Release of aisignoff to install from PyPI (pinned, so a new release can't change the check unannounced)
         type: string
-        default: "0.20.1"
+        default: "0.22.0"
       weight:
         description: Badge weighting, "files" or "lines"
         type: string
