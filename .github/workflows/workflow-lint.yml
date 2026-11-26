@@ -27,8 +27,9 @@ jobs:
           set -euo pipefail
           curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz" \
             | tar xz -C "$RUNNER_TEMP" actionlint
-          # the templates are workflows too, with $default-branch standing for the branch
+          # the templates are workflows too, with $default-branch standing for the branch (a literal, not expanded)
           mkdir -p "$RUNNER_TEMP/templates"
+          # shellcheck disable=SC2016
           for f in workflow-templates/*.yml; do sed 's/\$default-branch/main/g' "$f" > "$RUNNER_TEMP/templates/$(basename "$f")"; done
           "$RUNNER_TEMP/actionlint" -color .github/workflows/*.yml "$RUNNER_TEMP"/templates/*.yml
 
