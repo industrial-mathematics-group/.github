@@ -1,0 +1,5 @@
+{
+  "name": "Links",
+  "description": "Finds dead links in README and docs with lychee, on pull requests and weekly.",
+  "iconName": "octicon link"
+}

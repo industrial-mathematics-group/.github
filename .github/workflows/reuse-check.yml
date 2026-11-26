@@ -1,0 +1,16 @@
+name: REUSE
+
+# This repository's own REUSE check (REUSE.toml, LICENSES/), with the reusable workflow next to it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reuse:
+    uses: ./.github/workflows/reuse.yml

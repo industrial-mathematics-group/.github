@@ -1,0 +1,54 @@
+# Publishes shields.io endpoint files to the orphan branch "badges" of the repository. Several workflows
+# (File-signoff, Signoff-Badges) write their own files to the same branch, so a push can be rejected: it starts
+# again from the newest branch tip and retries. Needs a checkout with credentials and "contents: write".
+name: Publish badges
+description: Commits badge files to the orphan branch "badges", retrying when another workflow pushed first.
+
+inputs:
+  files:
+    description: Names of the files in "source" to publish, separated by spaces (missing ones are skipped)
+    required: true
+  source:
+    description: Folder that holds the files
+    required: true
+  message:
+    description: Commit message
+    required: false
+    default: Update badges
+
+runs:
+  using: composite
+  steps:
+    - name: Publish to the badges branch
+      shell: bash
+      env:
+        FILES: ${{ inputs.files }}
+        SRC: ${{ inputs.source }}
+        MESSAGE: ${{ inputs.message }}
+      run: |
+        set -euo pipefail
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        PRESENT=""
+        for f in $FILES; do if [ -f "$SRC/$f" ]; then PRESENT="$PRESENT $f"; fi; done
+        if [ -z "$PRESENT" ]; then echo "No badge files in $SRC."; exit 0; fi
+        WT="$RUNNER_TEMP/badges-worktree"
+        for attempt in 1 2 3 4 5; do
+          cd "$GITHUB_WORKSPACE"
+          rm -rf "$WT"; git worktree prune
+          if git ls-remote --exit-code --heads origin badges >/dev/null; then
+            git fetch -q origin badges
+            git worktree add -q --detach "$WT" FETCH_HEAD
+          else
+            # unique local name; only the remote branch is called "badges"
+            git worktree add -q --orphan -b "badges-new-$GITHUB_RUN_ID-$attempt" "$WT"
+          fi
+          for f in $PRESENT; do cp "$SRC/$f" "$WT/"; done
+          cd "$WT"
+          git add $PRESENT
+          if git diff --cached --quiet; then echo "Badges unchanged."; exit 0; fi
+          git commit -q -m "$MESSAGE"
+          if git push -q origin HEAD:refs/heads/badges; then echo "Badges published."; exit 0; fi
+          echo "Push rejected (attempt $attempt), retrying ..."; sleep $((attempt * 3))
+        done
+        echo "Could not publish the badges." >&2; exit 1

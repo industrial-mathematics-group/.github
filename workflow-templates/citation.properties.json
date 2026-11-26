@@ -1,0 +1,6 @@
+{
+  "name": "Citation",
+  "description": "Checks CITATION.cff against the Citation File Format schema, so that Zenodo and \"Cite this repository\" can read it.",
+  "iconName": "octicon quote",
+  "filePatterns": ["^CITATION\\.cff$"]
+}

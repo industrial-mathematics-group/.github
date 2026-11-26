@@ -1,0 +1,12 @@
+# zizmor (workflow-lint.yml): GitHub's own actions may be pinned by version tag, the organisation's own by
+# branch; every other action by commit hash (Dependabot keeps both up to date).
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "actions/*": ref-pin
+        "industrial-mathematics-group/*": any
+        "*": hash-pin
+  # "./.github/workflows/..." is how this repository's own checks call the reusable workflows next to them
+  self-repository:
+    disable: true

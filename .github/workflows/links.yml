@@ -1,0 +1,41 @@
+# Reusable workflow: finds dead links in the repository's Markdown (README, docs/) with lychee. Pull requests
+# that touch Markdown get a failing check; the weekly scheduled run in the template catches links that died
+# since. Called from each repository (see workflow-templates/links.yml); the check is "links / check".
+name: Links
+
+on:
+  workflow_call:
+    inputs:
+      paths:
+        description: Files to check, as lychee globs separated by spaces
+        type: string
+        default: "'./**/*.md'"
+      args:
+        description: More arguments for lychee, e.g. "--exclude doi.org" for sites that refuse automated requests
+        type: string
+        default: ""
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/cache@v6
+        with:
+          path: .lycheecache
+          key: lychee-${{ github.sha }}
+          restore-keys: lychee-
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --no-progress --cache --max-cache-age 1d --exclude-path .git
+            --exclude '^https://github\.com/[^/]+/[^/]+/(edit|new)/' --accept '200..=299,403,429'
+            ${{ inputs.args }} ${{ inputs.paths }}
+          fail: true
+          jobSummary: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

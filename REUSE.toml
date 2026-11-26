@@ -1,6 +1,6 @@
 version = 1
 
-# The logos (must come after the catch-all)
+# Everything else
 [[annotations]]
 path = ["**"]
 SPDX-FileCopyrightText = "2026 Industrial Mathematics Group"

@@ -1,0 +1,37 @@
+# Reusable workflow: checks CITATION.cff against the Citation File Format schema with cffconvert, so that a
+# broken file is found before a release, when Zenodo and GitHub's "Cite this repository" read it.
+# Called from each repository (see workflow-templates/citation.yml); the check is "citation / validate".
+name: Citation
+
+on:
+  workflow_call:
+    inputs:
+      cffconvert-version:
+        description: Release of cffconvert to install from PyPI
+        type: string
+        default: "2.0.0"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install cffconvert
+        working-directory: ${{ runner.temp }}
+        env:
+          VERSION: ${{ inputs.cffconvert-version }}
+        run: python -m pip install --disable-pip-version-check -q "cffconvert==${VERSION}"
+      - name: Validate CITATION.cff
+        run: |
+          if [ ! -f CITATION.cff ]; then
+            echo "::error::No CITATION.cff in this repository. Write one (https://citation-file-format.github.io/cff-initializer-javascript/) or remove this workflow."
+            exit 1
+          fi
+          cffconvert --validate --infile CITATION.cff

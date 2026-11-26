@@ -1,0 +1,19 @@
+name: Links
+
+# Finds dead links in the Markdown files: on pull requests that change them, and once a week for links that died since.
+on:
+  pull_request:
+    paths: ["**/*.md"]
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    uses: industrial-mathematics-group/.github/.github/workflows/links.yml@main
+    # with:
+    #   paths: "'./docs/**/*.md' README.md"   # which files (lychee globs)
+    #   args: "--exclude doi.org"             # sites that refuse automated requests
