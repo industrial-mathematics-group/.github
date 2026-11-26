@@ -1,0 +1,6 @@
+{
+  "name": "REUSE",
+  "description": "Checks with reuse lint that every file has copyright and licence information (REUSE.toml, SPDX headers, LICENSES/).",
+  "iconName": "octicon law",
+  "filePatterns": ["^REUSE\\.toml$", "^LICENSES/"]
+}

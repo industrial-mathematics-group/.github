@@ -1,0 +1,13 @@
+# Keeps the GitHub actions of this repository's workflows and composite actions at their newest versions.
+# Dependabot's pull requests skip PR-signoff (see pr-signoff.yml).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ["/", "/actions/*"]
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7   # a release has a week to be pulled before it reaches every repository
+    groups:
+      actions:
+        patterns: ["*"]

@@ -21,17 +21,17 @@
 # description (see SETUP.md); the "Signoff-Badges" workflow reads it from there.
 #
 # Security: runs on pull_request_target so it can label PRs from forks. It checks out GitHub's merge
-# preview without credentials and only reads it: aisignoff is installed from PyPI before the checkout
-# and runs no code of the repository.
+# preview without credentials and only reads it: aisignoff is installed from PyPI (actions/setup-aisignoff
+# of this repository, never the pull request's) and runs no code of the repository.
 name: PR-signoff
 
 on:
   workflow_call:
     inputs:
       aisignoff-version:
-        description: Release of aisignoff to install from PyPI; keep it at File-signoff's
+        description: Release of aisignoff to install from PyPI; empty (the default) is the organisation's version
         type: string
-        default: "0.22.0"
+        default: ""
       allow-policy-change:
         description: >-
           Repository permissions of PR authors who may change [policy], version, exclude or [history] of SIGNOFF.toml, or .git-blame-ignore-revs,
@@ -57,24 +57,25 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install aisignoff
-        env:
-          VERSION: ${{ inputs.aisignoff-version }}
-        run: pip install "aisignoff==${VERSION}"
-
       - name: Check out the merge preview
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0   # the whole history: the base branch, and the lines' declarations ([history])
           persist-credentials: false
+          # A fork's code under pull_request_target: safe here, since nothing of it runs. aisignoff comes from
+          # PyPI (the next step, from this workflow's own action) and only reads the files and git history.
+          allow-unsafe-pr-checkout: true  # zizmor: ignore[unsafe-checkout]
+
+      # Only restores the blame cache: a run on a pull request never writes one.
+      - uses: industrial-mathematics-group/.github/actions/setup-aisignoff@main
+        with:
+          version: ${{ inputs.aisignoff-version }}
+          cache: restore
 
       - name: May the author change the rules?
         id: author
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ALLOWED: ${{ inputs.allow-policy-change }}
         with:
@@ -120,7 +121,7 @@ jobs:
 
       - name: Set labels
         if: ${{ !cancelled() }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');

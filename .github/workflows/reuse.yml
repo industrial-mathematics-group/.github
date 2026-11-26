@@ -1,16 +1,21 @@
+# Reusable workflow: REUSE compliance (https://reuse.software). "reuse lint" fails unless every file has
+# copyright and licence information (SPDX headers, REUSE.toml or .license files) and every licence it names is
+# in LICENSES/. Called from each repository (see workflow-templates/reuse.yml); the check is "reuse / lint".
+# Getting started in a repository: "pipx run reuse download --all" for the licence texts, and a REUSE.toml
+# (or "reuse annotate") for the copyright and licence of the files.
 name: REUSE
 
-# Checks that every file has copyright and licence information (REUSE.toml, LICENSES/), on every push.
 on:
-  push:
-  workflow_dispatch:
+  workflow_call:
 
 jobs:
-  reuse:
-    name: REUSE compliance
+  lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: reuse lint
-        uses: fsfe/reuse-action@v5
+        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0

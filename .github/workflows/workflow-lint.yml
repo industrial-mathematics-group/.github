@@ -1,0 +1,49 @@
+name: Workflow lint
+
+# This repository's workflows and actions are called by every repository of the organisation: actionlint checks
+# their syntax, expressions and shell scripts, zizmor their security (injection, permissions, credentials).
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/**, actions/**, workflow-templates/**]
+  pull_request:
+    paths: [.github/workflows/**, actions/**, workflow-templates/**]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: actionlint
+        env:
+          VERSION: "1.7.12"
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz" \
+            | tar xz -C "$RUNNER_TEMP" actionlint
+          # the templates are workflows too, with $default-branch standing for the branch
+          mkdir -p "$RUNNER_TEMP/templates"
+          for f in workflow-templates/*.yml; do sed 's/\$default-branch/main/g' "$f" > "$RUNNER_TEMP/templates/$(basename "$f")"; done
+          "$RUNNER_TEMP/actionlint" -color .github/workflows/*.yml "$RUNNER_TEMP"/templates/*.yml
+
+  zizmor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: zizmor
+        working-directory: ${{ runner.temp }}
+        env:
+          VERSION: "1.33.1"
+        run: python -m pip install --disable-pip-version-check -q "zizmor==${VERSION}"
+      - run: zizmor --format=github .

@@ -11,8 +11,12 @@ This repository (`industrial-mathematics-group/.github`) holds everything that a
 | `.github/workflows/signoff-badges.yml` | Reusable workflow *Signoff-Badges*: publishes the README badges of the PR declarations |
 | `.github/workflows/file-signoff.yml` | Reusable workflow *File-signoff*: file-level declarations with aisignoff (lint + badges) |
 | `.github/ISSUE_TEMPLATE/signoff-request.yml` | The issue form *Signoff: declare or attest files*, which IMGAgent turns into a `SIGNOFF.toml` pull request |
-| `.github/workflows/zensical-docs.yml` | Reusable workflow *Zensical docs*: builds `docs/` with Zensical and publishes it on GitHub Pages (see [below](#documentation-sites-zensical)) |
-| `.github/workflows/pr-signoff-check.yml`, `file-signoff-check.yml`, `SIGNOFF.toml` | This repository's own PR-signoff and File-signoff checks, with the reusable workflows above |
+| `.github/workflows/zensical-docs.yml` | Reusable workflow *Zensical docs*: builds `docs/` with Zensical, adds the signoff report, and publishes it on GitHub Pages (see [below](#documentation-sites-zensical)) |
+| `.github/workflows/reuse.yml`, `citation.yml`, `links.yml` | Reusable workflows *REUSE*, *Citation* and *Links* (see [Other checks](#other-checks)) |
+| `actions/setup-aisignoff/` | Installs aisignoff at the **organisation's version** (set there, in one place) and keeps its blame cache; used by every workflow above, and by a repository's own steps |
+| `actions/publish-badges/` | Commits badge files to a repository's `badges` branch (File-signoff, Signoff-Badges) |
+| `.github/workflows/pr-signoff-check.yml`, `file-signoff-check.yml`, `reuse-check.yml`, `SIGNOFF.toml` | This repository's own checks, with the reusable workflows above |
+| `.github/workflows/workflow-lint.yml`, `.github/zizmor.yml`, `.github/dependabot.yml` | Checks of this repository's workflows (actionlint, zizmor), and Dependabot for their action versions |
 | `workflow-templates/` | One-click versions of the caller workflows (*Actions → New workflow*) |
 | `logos/` | Optional: logo kits (CC BY 4.0) |
 
@@ -26,7 +30,7 @@ This repository must be **public** for the defaults and the reusable workflows t
 
 ## 2. Per repository
 
-1. **Add the workflows.** Go to *Actions → New workflow* and pick **PR-signoff** and **Signoff-Badges** (and **File-signoff** for repositories that declare files with aisignoff) from the "By Industrial Mathematics Group" section. Or copy them by hand into `.github/workflows/` and replace `$default-branch` with `main`.
+1. **Add the workflows.** Go to *Actions → New workflow* and pick **PR-signoff** and **Signoff-Badges** (and **File-signoff** for repositories that declare files with aisignoff, and **REUSE**, **Citation** or **Links** as fits, see [Other checks](#other-checks)) from the "By Industrial Mathematics Group" section. Or copy them by hand into `.github/workflows/` and replace `$default-branch` with `main`.
 2. **Merge settings** (*Settings → General → Pull Requests*):
    - allow **merge commits** only, so the full history of each PR is kept,
    - default merge commit message: **"Pull request title and description"**. This puts the ticked declaration questions into the merge commit on `main`, where the badges read them. Merge on GitHub, not locally: a local merge doesn't carry the description.
@@ -73,8 +77,8 @@ the input `aisignoff-version`): one parser and one set of rules for the PR templ
 
 For repositories with results, data or papers, or with casual single-commit uploads:
 
-1. **Once for the organisation:** the workflow installs aisignoff from PyPI, pinned by the input `aisignoff-version` of `.github/workflows/file-signoff.yml`. Raise the default there to update every repository at once, after checking the aisignoff changelog for **Breaking** changes; a repository can set `aisignoff-version` itself to differ. aisignoff is back on 0.x versions: the order of releases is 0.14, 1.0.0rc1 to 1.0.0rc10, 0.15.0, so 0.15.0 has everything the release candidates had, and "1.0.0rcN or later" in these docs includes 0.15.0 ([Versions](https://industrial-mathematics-group.github.io/aisignoff/compatibility/#versions)). Pin an exact version; a range such as `>=1.0.0rc6` doesn't include 0.15.0.
-2. **Per repository:** add the **File-signoff** workflow (*Actions → New workflow*), and `SIGNOFF.toml` (`aisignoff init …`, `aisignoff annotate …`) or let the workflow set it up (below). It runs `aisignoff lint` on every push, PR and merge queue run, and on pushes to `main` it publishes the badges:
+1. **Once for the organisation:** every workflow installs aisignoff from PyPI through `actions/setup-aisignoff`, at the **organisation's version**, `ORG_VERSION` in [`actions/setup-aisignoff/action.yml`](actions/setup-aisignoff/action.yml). Raise it there to update every repository at once (PR-signoff, File-signoff, Signoff-Badges and the report in the docs alike), after checking the aisignoff changelog for **Breaking** changes; a repository can set the input `aisignoff-version` itself to differ. aisignoff is back on 0.x versions: the order of releases is 0.14, 1.0.0rc1 to 1.0.0rc10, 0.15.0, so 0.15.0 has everything the release candidates had, and "1.0.0rcN or later" in these docs includes 0.15.0 ([Versions](https://industrial-mathematics-group.github.io/aisignoff/compatibility/#versions)). Pin an exact version; a range such as `>=1.0.0rc6` doesn't include 0.15.0. The action also keeps aisignoff's [blame cache](https://industrial-mathematics-group.github.io/aisignoff/cache/) between runs, so that a run only blames the commits since the last one on the default branch.
+2. **Per repository:** add the **File-signoff** workflow (*Actions → New workflow*), and `SIGNOFF.toml`: write `@IMGAgent signoff` in an issue to have it set up, or run `aisignoff init …` and `aisignoff annotate …` yourself. It runs `aisignoff lint` on every push, PR and merge queue run, and on pushes to `main` it publishes the badges:
 
 ```markdown
 [![AI generation (files)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/<repo>/badges/aisignoff-generation.json)](https://github.com/industrial-mathematics-group/aisignoff)
@@ -86,27 +90,18 @@ For repositories with results, data or papers, or with casual single-commit uplo
    The findings badge (aisignoff 1.0.0rc9 or later) shows what the last independent AI review of each file found
    (F0–F3, or F- where no review with findings has covered it since it last changed).
 
-   **Without `SIGNOFF.toml`**, *File-signoff* skips the check with a warning, and on a push to `main` (or a manual
-   run) it opens a pull request from the branch `aisignoff-setup` that adds a `SIGNOFF.toml` with the organisation's
-   defaults: `[history]` on, and a `**` annotation with every level and
-   `Reviewed-by` set to `TODO`. Someone fills in the `TODO`s (and annotates folders that differ), ticks a human
-   review box in the description and merges; *File-signoff* fails on that pull request until no `TODO` is left. The
-   pull request names the person whose push or run started the workflow as `Responsible person`. Checks start on the
-   first push to the branch, since GitHub doesn't run workflows for pull requests opened with the workflow token.
-   While the branch exists (also after the pull request is closed), no new one is opened: delete the branch to get
-   another. It needs `pull-requests: write` in the caller (in the template) and *Settings → Actions → General →
-   Allow GitHub Actions to create and approve pull requests* for the organisation or repository; without them, the
-   workflow pushes the branch and its job summary links to a new pull request with the description to paste.
-   Inputs: `setup: false` turns it off, `setup-history: false` leaves `[history]` out. (`setup-recheck` only
-   applies to a repository that pins aisignoff before 1.0.0rc9; `[review]` `recheck` is gone since then.)
+   **Without `SIGNOFF.toml`**, *File-signoff* skips the check with a warning that says how to set it up.
 
-   **The report on GitHub Pages (optional).** With `pages: true`, *File-signoff* also publishes the interactive
-   folder report on every push to `main` (and manual run), at `https://industrial-mathematics-group.github.io/<repo>/aisignoff/`
-   (input `pages-path`, default `/aisignoff/`; `/` puts it at the root), with a redirect to it at the root of the
-   site. It needs *Settings → Pages → Source: GitHub Actions* and, in the caller, `pages: write` and
-   `id-token: write` (commented out in the template). A deployment replaces the whole Pages site: in a repository
-   whose Pages site is its documentation, leave it off and put the report into the documentation instead. The
-   report shows the text of every file, like a public repository; Pages of a private repository need a paid plan.
+   **The report as a website.** *File-signoff* uploads the interactive folder report as the artifact
+   `aisignoff-report` on every run. As a website, the report belongs in the repository's documentation:
+   *Zensical docs* adds it at `https://industrial-mathematics-group.github.io/<repo>/signoff/` by itself
+   ([below](#documentation-sites-zensical)), and a Julia package writes it into its Documenter docs
+   ([below](#julia-packages-documenter)). A repository without documentation gets a site with
+   `@IMGAgent docs make`. The report shows the text of every file, like a public repository.
+
+   The inputs `setup`, `setup-recheck`, `setup-history`, `pages` and `pages-path` are gone: they are still
+   accepted, do nothing and give a warning; remove them from the caller (and `pull-requests: write`,
+   `pages: write` and `id-token: write`, which File-signoff no longer needs).
 3. Optionally require the status check **`file-signoff / lint`** on `main`.
 4. Optionally install the IMGAgent App on the repository for the signoff form and `@IMGAgent signoff`, see
    [below](#signoff-requests-the-form-and-imgagent).
@@ -140,9 +135,48 @@ and publish it with the reusable workflow *Zensical docs*:
 2. Pull requests that touch `docs/` or `zensical.toml` build the site, so a broken page or config fails before the
    merge (require the check **`docs / build`** on `main` if you like). Pushes to `main` and manual runs build and
    deploy it to `https://industrial-mathematics-group.github.io/<repo>/`; set that as `site_url`.
-3. No site yet? `@IMGAgent docs make` in an issue writes `docs/` and a complete `zensical.toml` as a pull request.
-4. Zensical is pinned by the input `zensical-version` (default `0.1.1`). Raise the default here to update every
+3. **The signoff report:** in a repository with `SIGNOFF.toml`, the build adds aisignoff's folder report at
+   `<site>/signoff/` (input `signoff-report-path`; `signoff-report: false` leaves it out). Link it from the
+   navigation of `zensical.toml` if you like. On a pull request the report marks the lines it changes, and the
+   built site is uploaded as the artifact `site`. The template builds on every push to `main`, so the report
+   stays current; a caller that still has a `paths:` filter on `push` only updates it with the docs.
+4. No site yet? `@IMGAgent docs make` in an issue writes `docs/` and a complete `zensical.toml` as a pull request.
+5. Zensical is pinned by the input `zensical-version` (default `0.1.3`). Raise the default here to update every
    repository at once after a test build; a repository can set its own. `deploy: false` only builds.
+
+## Julia packages (Documenter)
+
+The report is a page of the Documenter docs. In the docs job of `CI.yml`, check out with `fetch-depth: 0`, and
+before `make.jl`:
+
+```yaml
+- uses: industrial-mathematics-group/.github/actions/setup-aisignoff@main   # the organisation's version
+  with:
+    cache: restore
+- name: AI signoff report
+  continue-on-error: true
+  env:
+    SINCE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+  run: aisignoff report --html docs/src/assets/aisignoff.html --title "<Package>.jl" --with-source ${SINCE:+--since "$SINCE"}
+```
+
+Then a page `docs/src/aisignoff.md` with an iframe on `assets/aisignoff.html` (as in HyperCloudCore.jl),
+`"AI Signoff Report" => "aisignoff.md"` in `pages` of `docs/make.jl`, and `docs/src/assets/aisignoff.html` in
+`.gitignore`. `deploydocs` publishes it.
+
+## Other checks
+
+Reusable workflows for any repository, each with a template under *Actions → New workflow*:
+
+| Workflow | Check | What it does |
+|---|---|---|
+| **REUSE** | `reuse / lint` | `reuse lint` on pushes and pull requests: every file needs copyright and licence information (SPDX headers or `REUSE.toml`) and every licence its text in `LICENSES/` ([REUSE](https://reuse.software)). To start: `pipx run reuse download --all` and a `REUSE.toml`, as in this repository |
+| **Citation** | `citation / validate` | Validates `CITATION.cff` with cffconvert when it changes, so that GitHub's *Cite this repository* and Zenodo can read it |
+| **Links** | `links / check` | Dead links in the Markdown files (lychee), on pull requests that change them and weekly; inputs `paths` and `args` (e.g. `--exclude doi.org`) |
+
+Dependabot keeps the action versions of this repository current (`.github/dependabot.yml`). In a repository with
+its own workflows, the same file (`package-ecosystem: github-actions`) does it there; its pull requests skip
+PR-signoff.
 
 ## Minimum levels per repository
 

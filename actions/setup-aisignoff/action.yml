@@ -1,0 +1,79 @@
+# Installs aisignoff, at the organisation's version unless "version" names another, and restores (and
+# saves) its blame cache, so that a run only blames the commits since the last one.
+#
+# The organisation's aisignoff version is set HERE, in one place: every reusable workflow of this repository
+# (PR-signoff, File-signoff, Signoff-Badges, Zensical docs) installs aisignoff through this action. Raise it
+# after reading the aisignoff changelog for **Breaking** changes.
+#
+# Also for a repository's own workflows, e.g. the Documenter docs job of a Julia package:
+#   - uses: actions/checkout@v7
+#     with:
+#       fetch-depth: 0
+#   - uses: industrial-mathematics-group/.github/actions/setup-aisignoff@main
+#   - run: aisignoff report --html docs/src/assets/aisignoff.html --with-source
+name: Set up aisignoff
+description: Installs the organisation's aisignoff release (or another one) and restores its blame cache.
+
+inputs:
+  version:
+    description: Release of aisignoff to install from PyPI; empty (the default) is the organisation's version
+    required: false
+    default: ""
+  cache:
+    description: >-
+      The blame cache in .git/aisignoff: "true" restores it and saves it at the end of the job, "restore" only
+      restores it (for pull_request_target, so that a run on a pull request never writes a cache), "false" leaves it off
+    required: false
+    default: "true"
+  python-version:
+    description: Python for aisignoff (3.11 or later)
+    required: false
+    default: "3.12"
+
+outputs:
+  version:
+    description: The release of aisignoff that was installed
+    value: ${{ steps.version.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Which aisignoff
+      id: version
+      shell: bash
+      env:
+        REQUESTED: ${{ inputs.version }}
+        # The organisation's aisignoff version
+        ORG_VERSION: "0.24.0"
+      run: |
+        V="${REQUESTED:-$ORG_VERSION}"
+        if ! [[ "$V" =~ ^[0-9]+(\.[0-9]+)*((a|b|rc)[0-9]+)?$ ]]; then
+          echo "::error::aisignoff-version must be a release such as 0.24.0, not '$V'"
+          exit 1
+        fi
+        echo "version=$V" >> "$GITHUB_OUTPUT"
+    - uses: actions/setup-python@v7
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install aisignoff ${{ steps.version.outputs.version }}
+      shell: bash
+      # not in the work tree: "python -m" puts the current folder on the module path, and the work tree may
+      # be a pull request's (PR-signoff)
+      working-directory: ${{ runner.temp }}
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+      run: python -m pip install --disable-pip-version-check -q "aisignoff==${VERSION}"
+    # The cache holds what git blame found at commits of the default branch (facts about the history, never
+    # levels), and gives the same results as a run without it; a cache from other history is not used.
+    - uses: actions/cache@v6
+      if: inputs.cache == 'true'
+      with:
+        path: .git/aisignoff
+        key: aisignoff-${{ github.sha }}
+        restore-keys: aisignoff-
+    - uses: actions/cache/restore@v6
+      if: inputs.cache == 'restore'
+      with:
+        path: .git/aisignoff
+        key: aisignoff-${{ github.sha }}
+        restore-keys: aisignoff-

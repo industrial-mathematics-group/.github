@@ -2,7 +2,7 @@ name: PR-signoff
 
 # This repository's own check of the AI declaration in each pull request, with the reusable workflow next to it.
 on:
-  pull_request_target:
+  pull_request_target:  # zizmor: ignore[dangerous-triggers] labels PRs from forks; runs no PR code (pr-signoff.yml)
     branches: [main]
     types: [opened, edited, synchronize, reopened, ready_for_review]
 
