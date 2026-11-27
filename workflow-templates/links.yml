@@ -17,3 +17,4 @@ jobs:
     # with:
     #   paths: "'./docs/**/*.md' README.md"   # which files (lychee globs)
     #   args: "--exclude doi.org"             # sites that refuse automated requests
+    #   runs-on: aisignoff                    # a self-hosted runner (private repositories, see SETUP.md)

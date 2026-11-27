@@ -14,3 +14,5 @@ permissions:
 jobs:
   pr-signoff:
     uses: industrial-mathematics-group/.github/.github/workflows/pr-signoff.yml@main
+    # with:
+    #   runs-on: aisignoff   # a self-hosted runner: private repositories only (see SETUP.md)

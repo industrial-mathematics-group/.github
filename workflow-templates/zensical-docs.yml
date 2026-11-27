@@ -28,3 +28,4 @@ jobs:
     #   deploy: false               # only build, e.g. while the site isn't ready to publish
     #   signoff-report: false       # no aisignoff report at <site>/signoff/ (only with SIGNOFF.toml)
     #   signoff-report-path: ai     # the report at <site>/ai/ instead
+    #   runs-on: aisignoff          # a self-hosted runner (private repositories, see SETUP.md)

@@ -40,10 +40,17 @@ on:
         description: Publish on GitHub Pages (pushes to the default branch and manual runs); false only builds
         type: boolean
         default: true
+      runs-on:
+        description: >-
+          Runner for both jobs (build and deploy): a label such as ubuntu-latest (the default) or aisignoff (a self-hosted runner),
+          or JSON for several labels or a runner group, e.g. ["self-hosted", "aisignoff"]; empty is ubuntu-latest.
+          See SETUP.md, "Self-hosted runner".
+        type: string
+        default: ubuntu-latest
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (startsWith(inputs.runs-on, '[') || startsWith(inputs.runs-on, '{')) && fromJSON(inputs.runs-on) || inputs.runs-on || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -114,7 +121,7 @@ jobs:
   deploy:
     needs: build
     if: inputs.deploy && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (startsWith(inputs.runs-on, '[') || startsWith(inputs.runs-on, '{')) && fromJSON(inputs.runs-on) || inputs.runs-on || 'ubuntu-latest' }}
     permissions:
       pages: write      # deploy to GitHub Pages
       id-token: write   # prove the deployment comes from this workflow

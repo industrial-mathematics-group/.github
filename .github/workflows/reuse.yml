@@ -1,21 +1,42 @@
 # Reusable workflow: REUSE compliance (https://reuse.software). "reuse lint" fails unless every file has
 # copyright and licence information (SPDX headers, REUSE.toml or .license files) and every licence it names is
 # in LICENSES/. Called from each repository (see workflow-templates/reuse.yml); the check is "reuse / lint".
-# Getting started in a repository: "pipx run reuse download --all" for the licence texts, and a REUSE.toml
+# reuse is installed from PyPI (not the Docker image of fsfe/reuse-action), so that the job also runs on a
+# self-hosted runner without Docker. Getting started in a repository: "pipx run reuse download --all" for the licence texts, and a REUSE.toml
 # (or "reuse annotate") for the copyright and licence of the files.
 name: REUSE
 
 on:
   workflow_call:
+    inputs:
+      reuse-version:
+        description: Release of reuse to install from PyPI
+        type: string
+        default: "6.3.0"
+      runs-on:
+        description: >-
+          Runner for the job: a label such as ubuntu-latest (the default) or aisignoff (a self-hosted runner),
+          or JSON for several labels or a runner group, e.g. ["self-hosted", "aisignoff"]; empty is ubuntu-latest.
+          See SETUP.md, "Self-hosted runner".
+        type: string
+        default: ubuntu-latest
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (startsWith(inputs.runs-on, '[') || startsWith(inputs.runs-on, '{')) && fromJSON(inputs.runs-on) || inputs.runs-on || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install reuse
+        working-directory: ${{ runner.temp }}
+        env:
+          VERSION: ${{ inputs.reuse-version }}
+        run: python -m pip install --disable-pip-version-check -q "reuse==${VERSION}"
       - name: reuse lint
-        uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+        run: reuse lint

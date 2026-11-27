@@ -14,3 +14,5 @@ permissions:
 jobs:
   reuse:
     uses: industrial-mathematics-group/.github/.github/workflows/reuse.yml@main
+    # with:
+    #   runs-on: aisignoff   # a self-hosted runner (private repositories, see SETUP.md)

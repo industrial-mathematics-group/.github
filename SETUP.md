@@ -39,6 +39,7 @@ This repository must be **public** for the defaults and the reusable workflows t
    - require the status check **`pr-signoff / check`**.
 
    You don't need to require approvals; as the only maintainer you couldn't approve your own PRs.
+   A private repository needs GitHub Team for this (see [Private repositories](#private-repositories)).
 4. **Badges in the README** (replace `<Package>`):
 
 ```markdown
@@ -177,6 +178,64 @@ Reusable workflows for any repository, each with a template under *Actions → N
 Dependabot keeps the action versions of this repository current (`.github/dependabot.yml`). In a repository with
 its own workflows, the same file (`package-ecosystem: github-actions`) does it there; its pull requests skip
 PR-signoff.
+
+## Private repositories
+
+Everything works in a private repository, with three differences:
+
+- **No required checks on GitHub Free.** GitHub doesn't enforce branch protection or rulesets in a private
+  repository of an organisation on GitHub Free, so `pr-signoff / check` and `file-signoff / lint` still run and show red or green,
+  but can't block a merge (section 2, step 3). That needs GitHub Team, which academic organisations get free
+  through GitHub Education.
+- **No GitHub Pages on GitHub Free**, so no *Zensical docs* site and no report on it; the report is still the
+  artifact `aisignoff-report` of every *File-signoff* run.
+- **Badges and links from outside don't work:** shields.io can't read the `badges` branch of a private
+  repository, so the README badges show an error. The workflows still write them.
+
+Actions minutes of private repositories are limited (public ones are free). A self-hosted runner saves them.
+
+## Self-hosted runner
+
+Every reusable workflow (PR-signoff, File-signoff, Signoff-Badges, Zensical docs, REUSE, Citation, Links) has
+the input **`runs-on`**: the runner for its jobs, `ubuntu-latest` by default. A label, or JSON for several labels
+or a runner group:
+
+```yaml
+jobs:
+  file-signoff:
+    uses: industrial-mathematics-group/.github/.github/workflows/file-signoff.yml@main
+    with:
+      runs-on: aisignoff                              # one label
+      # runs-on: '["self-hosted", "linux"]'           # several labels, all of which the runner must have
+      # runs-on: '{"group": "aisignoff"}'             # any runner of a runner group
+      # runs-on: ${{ vars.SIGNOFF_RUNNER }}           # a repository or organisation variable; unset: ubuntu-latest
+```
+
+An empty value is `ubuntu-latest`, so `${{ vars.SIGNOFF_RUNNER }}` lets one variable move all of a
+repository's checks (or, as an organisation variable for selected repositories, many repositories') without
+touching the workflows. The check names don't change.
+
+**The runner.** The organisation's runner for these checks registers with the label `aisignoff` only (no
+`self-hosted` default label), so that no other job lands on it: a container with Ubuntu 24.04, git, Python and
+aisignoff, without Docker or sudo, that takes one job and is then replaced. What the jobs need from a runner:
+
+- outbound HTTPS to GitHub (github.com, api.github.com, `*.actions.githubusercontent.com`,
+  `*.blob.core.windows.net`) and PyPI;
+- for `actions/setup-python` (REUSE, Citation, Zensical docs, and aisignoff when the runner doesn't have it): an
+  Ubuntu release that GitHub builds Python for, x64 or arm64;
+- no Docker: REUSE installs `reuse` from PyPI (input `reuse-version`) instead of the Docker action;
+- `actions/setup-aisignoff` uses an `aisignoff` already on the runner's `PATH` if it is the version the job asks
+  for (the organisation's `ORG_VERSION`, or the input `aisignoff-version`), and skips Python and PyPI. Build the
+  image with that version; on a mismatch the job installs its own, which is slower but gives the same result.
+
+**Only for private repositories.** A runner runs whatever steps a job sends it, and `runs-on` is no access
+control. In a public repository, anyone can open a pull request from a fork that changes the caller workflow to
+`runs-on: aisignoff` with steps of their own; and *PR-signoff* runs on `pull_request_target`, which starts for
+fork pull requests without the "approve workflows from outside contributors" gate. In a private repository only
+people with access can do either. Even then: one job per container (ephemeral runners), nothing worth stealing on
+the host (no secrets, SSH keys or Docker socket), and no way from the container into the local network. In the
+organisation's settings (*Actions → Runner groups*), allow the runner's group only for the private repositories
+that use it, and leave *Allow public repositories* off.
 
 ## Minimum levels per repository
 
