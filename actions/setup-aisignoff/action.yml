@@ -26,7 +26,7 @@ inputs:
     required: false
     default: "true"
   python-version:
-    description: Python for aisignoff (3.11 or later)
+    description: Python for aisignoff (3.11 or later); not used when the runner has aisignoff at the right version
     required: false
     default: "3.12"
 
@@ -52,10 +52,25 @@ runs:
           exit 1
         fi
         echo "version=$V" >> "$GITHUB_OUTPUT"
+    # A self-hosted runner may come with aisignoff (see SETUP.md, "Self-hosted runner"): at the right version
+    # it is used as it is, without Python or PyPI; otherwise the job installs its own.
+    - name: Preinstalled aisignoff?
+      id: pre
+      shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        if [ "$(aisignoff --version 2>/dev/null)" = "aisignoff $VERSION" ]; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "Using the preinstalled aisignoff $VERSION ($(command -v aisignoff))"
+        fi
     - uses: actions/setup-python@v7
+      if: steps.pre.outputs.found != 'true'
       with:
         python-version: ${{ inputs.python-version }}
     - name: Install aisignoff ${{ steps.version.outputs.version }}
+      if: steps.pre.outputs.found != 'true'
       shell: bash
       # not in the work tree: "python -m" puts the current folder on the module path, and the work tree may
       # be a pull request's (PR-signoff)
