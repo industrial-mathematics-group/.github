@@ -16,4 +16,4 @@ jobs:
   citation:
     uses: industrial-mathematics-group/.github/.github/workflows/citation.yml@main
     # with:
-    #   runs-on: aisignoff   # a self-hosted runner (private repositories, see SETUP.md)
+    #   runs-on: private-runner   # a self-hosted runner (private repositories, see SETUP.md)

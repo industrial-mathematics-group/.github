@@ -197,17 +197,17 @@ Actions minutes of private repositories are limited (public ones are free). A se
 ## Self-hosted runner
 
 Every reusable workflow (PR-signoff, File-signoff, Signoff-Badges, Zensical docs, REUSE, Citation, Links) has
-the input **`runs-on`**: the runner for its jobs, `ubuntu-latest` by default. A label, or JSON for several labels
-or a runner group:
+the input **`runs-on`**: the runner for its jobs, `ubuntu-latest` by default. The organisation's runner has the
+label **`private-runner`**, because that is the only kind of repository it is for:
 
 ```yaml
 jobs:
   file-signoff:
     uses: industrial-mathematics-group/.github/.github/workflows/file-signoff.yml@main
     with:
-      runs-on: aisignoff                              # one label
+      runs-on: private-runner                         # one label
       # runs-on: '["self-hosted", "linux"]'           # several labels, all of which the runner must have
-      # runs-on: '{"group": "aisignoff"}'             # any runner of a runner group
+      # runs-on: '{"group": "private-runner"}'        # any runner of a runner group
       # runs-on: ${{ vars.SIGNOFF_RUNNER }}           # a repository or organisation variable; unset: ubuntu-latest
 ```
 
@@ -215,9 +215,10 @@ An empty value is `ubuntu-latest`, so `${{ vars.SIGNOFF_RUNNER }}` lets one vari
 repository's checks (or, as an organisation variable for selected repositories, many repositories') without
 touching the workflows. The check names don't change.
 
-**The runner.** The organisation's runner for these checks registers with the label `aisignoff` only (no
-`self-hosted` default label), so that no other job lands on it: a container with Ubuntu 24.04, git, Python and
-aisignoff, without Docker or sudo, that takes one job and is then replaced. What the jobs need from a runner:
+**The runner** is set up in
+[industrial-mathematics-group/private-runner](https://github.com/industrial-mathematics-group/private-runner)
+(a container for Podman quadlets or Docker Compose). It registers with the label `private-runner` only (no
+`self-hosted` default label), so that no other job lands on it. What the jobs need from a runner:
 
 - outbound HTTPS to GitHub (github.com, api.github.com, `*.actions.githubusercontent.com`,
   `*.blob.core.windows.net`) and PyPI;
@@ -225,17 +226,16 @@ aisignoff, without Docker or sudo, that takes one job and is then replaced. What
   Ubuntu release that GitHub builds Python for, x64 or arm64;
 - no Docker: REUSE installs `reuse` from PyPI (input `reuse-version`) instead of the Docker action;
 - `actions/setup-aisignoff` uses an `aisignoff` already on the runner's `PATH` if it is the version the job asks
-  for (the organisation's `ORG_VERSION`, or the input `aisignoff-version`), and skips Python and PyPI. Build the
-  image with that version; on a mismatch the job installs its own, which is slower but gives the same result.
+  for (the organisation's `ORG_VERSION`, or the input `aisignoff-version`), and skips Python and PyPI. On a
+  mismatch the job installs its own, which is slower but gives the same result.
 
 **Only for private repositories.** A runner runs whatever steps a job sends it, and `runs-on` is no access
 control. In a public repository, anyone can open a pull request from a fork that changes the caller workflow to
-`runs-on: aisignoff` with steps of their own; and *PR-signoff* runs on `pull_request_target`, which starts for
-fork pull requests without the "approve workflows from outside contributors" gate. In a private repository only
-people with access can do either. Even then: one job per container (ephemeral runners), nothing worth stealing on
-the host (no secrets, SSH keys or Docker socket), and no way from the container into the local network. In the
-organisation's settings (*Actions → Runner groups*), allow the runner's group only for the private repositories
-that use it, and leave *Allow public repositories* off.
+`runs-on: private-runner` with steps of their own; and *PR-signoff* runs on `pull_request_target`, which starts
+for fork pull requests without the "approve workflows from outside contributors" gate. In a private repository
+only people with access can do either, which is why the runner can keep running between jobs (no new container
+per job) and keep its caches. In the organisation's settings (*Actions → Runner groups*), allow the runner's
+group only for the private repositories that use it, and leave *Allow public repositories* off.
 
 ## Minimum levels per repository
 

@@ -19,4 +19,4 @@ jobs:
     # with:
     #   weight: lines                 # weight the badges by lines instead of files
     #   aisignoff-version: "0.24.0"   # another release of aisignoff than the organisation's
-    #   runs-on: aisignoff            # a self-hosted runner (private repositories, see SETUP.md)
+    #   runs-on: private-runner            # a self-hosted runner (private repositories, see SETUP.md)

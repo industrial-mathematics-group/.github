@@ -42,10 +42,11 @@ on:
         default: ""
       runs-on:
         description: >-
-          Runner for the job: a label such as ubuntu-latest (the default) or aisignoff (a self-hosted runner),
-          or JSON for several labels or a runner group, e.g. ["self-hosted", "aisignoff"]; empty is ubuntu-latest.
-          A self-hosted runner only in private repositories: pull_request_target runs fork pull requests
-          without the approval for outside contributors. See SETUP.md, "Self-hosted runner".
+          Runner for the job: a label such as ubuntu-latest (the default) or private-runner (the
+          organisation's self-hosted runner, for private repositories only), or JSON for several labels or a
+          runner group, e.g. ["self-hosted", "linux"]; empty is ubuntu-latest.
+          Why only private: pull_request_target runs fork pull requests without the approval for outside
+          contributors. See SETUP.md, "Self-hosted runner".
         type: string
         default: ubuntu-latest
 
